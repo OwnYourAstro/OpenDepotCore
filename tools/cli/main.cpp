@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: MIT
 
 #include "opendepot/core/adk.h"
+#include "opendepot/core/crypto.h"
 
 #include <windows.h>
 #include <objbase.h>
-#include <wincrypt.h>
 
 #include <cstdio>
 #include <cwchar>
@@ -172,26 +172,7 @@ static bool ReadWholeFile(const std::wstring& path, std::vector<uint8_t>& out) {
 static bool Sha256File(const std::wstring& path, std::string& hex) {
     std::vector<uint8_t> data;
     if (!ReadWholeFile(path, data)) return false;
-    HCRYPTPROV prov = 0;
-    HCRYPTHASH h = 0;
-    if (!CryptAcquireContextW(&prov, nullptr, nullptr, PROV_RSA_AES, CRYPT_VERIFYCONTEXT))
-        return false;
-    if (!CryptCreateHash(prov, CALG_SHA_256, 0, 0, &h)) {
-        CryptReleaseContext(prov, 0);
-        return false;
-    }
-    CryptHashData(h, data.empty() ? nullptr : data.data(), (DWORD)data.size(), 0);
-    BYTE buf[32];
-    DWORD n = 32;
-    CryptGetHashParam(h, HP_HASHVAL, buf, &n, 0);
-    CryptDestroyHash(h);
-    CryptReleaseContext(prov, 0);
-    hex.clear();
-    char b[3];
-    for (DWORD i = 0; i < n; ++i) {
-        sprintf(b, "%02x", buf[i]);
-        hex += b;
-    }
+    hex = opendepot::Sha256Hex(data);
     return true;
 }
 

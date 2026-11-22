@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "opendepot/core/adk.h"
+#include "opendepot/core/crypto.h"
 
 #include <algorithm>
 #include <sstream>
@@ -10,7 +11,6 @@
 
 #include <windows.h>
 #include <objbase.h>
-#include <wincrypt.h>
 
 #include <algorithm>
 #include <cstring>
@@ -77,55 +77,6 @@ bool WriteWholeStream(IStorage* stg, const wchar_t* name, const std::vector<uint
 
 inline uint8_t Nxt(uint8_t s) { return static_cast<uint8_t>(s * 0x55 + 0x19); }
 
-struct Rc4 {
-    HCRYPTPROV prov = 0;
-    HCRYPTHASH hash = 0;
-    bool ok = false;
-
-    bool Init(const std::vector<uint8_t>& seed) {
-        if (seed.size() < 9) return false;
-        if (!CryptAcquireContextA(&prov, nullptr, "Microsoft Base Cryptographic Provider v1.0",
-                                  PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-            return false;
-        if (!CryptCreateHash(prov, CALG_MD5, 0, 0, &hash)) return false;
-        if (!CryptHashData(hash, seed.data(), 9, 0)) return false;
-        ok = true;
-        return true;
-    }
-    ~Rc4() {
-        if (hash) CryptDestroyHash(hash);
-        if (prov) CryptReleaseContext(prov, 0);
-    }
-    bool Crypt(bool encrypt, const std::vector<uint8_t>& in, std::vector<uint8_t>& out) {
-        if (!ok) return false;
-        HCRYPTKEY key = 0;
-        if (!CryptDeriveKey(prov, CALG_RC4, hash, 0, &key)) return false;
-        bool result = false;
-        if (encrypt) {
-            DWORD need = static_cast<DWORD>(in.size());
-            if (CryptEncrypt(key, 0, TRUE, 0, nullptr, &need, 0)) {
-                std::vector<uint8_t> buf(need);
-                if (!in.empty()) memcpy(buf.data(), in.data(), in.size());
-                DWORD len = static_cast<DWORD>(in.size());
-                if (CryptEncrypt(key, 0, TRUE, 0, buf.data(), &len, need)) {
-                    buf.resize(len);
-                    out.swap(buf);
-                    result = true;
-                }
-            }
-        } else {
-            std::vector<uint8_t> buf = in;
-            DWORD len = static_cast<DWORD>(buf.size());
-            if (CryptDecrypt(key, 0, TRUE, 0, buf.empty() ? nullptr : buf.data(), &len)) {
-                buf.resize(len);
-                out.swap(buf);
-                result = true;
-            }
-        }
-        CryptDestroyKey(key);
-        return result;
-    }
-};
 
 bool EnumerateStreams(IStorage* stg, std::vector<std::pair<int, std::wstring>>& names) {
     IEnumSTATSTG* e = nullptr;
@@ -243,15 +194,33 @@ bool AdkCustomEncrypt(const std::vector<uint8_t>& in, std::vector<uint8_t>& out)
     return true;
 }
 
+namespace {
+
+// CryptoAPI's RC4 derives a 40-bit key from MD5(seed) and then runs the
+// standard RC4 key schedule over a 16-byte buffer holding those 5 bytes
+// followed by 11 zero bytes. Verified keystream-for-keystream on Windows.
+bool DeriveStreamKey(const std::vector<uint8_t>& seed, std::vector<uint8_t>& key) {
+    if (seed.size() < 9) return false;
+    const auto digest = Md5(seed.data(), 9);
+    key.assign(16, 0);
+    for (int i = 0; i < 5; ++i) key[static_cast<size_t>(i)] = digest[static_cast<size_t>(i)];
+    return true;
+}
+
+}  // namespace
+
 bool Rc4Decrypt(const std::vector<uint8_t>& seed, const std::vector<uint8_t>& in,
                 std::vector<uint8_t>& out) {
-    Rc4 rc4;
-    return rc4.Init(seed) && rc4.Crypt(false, in, out);
+    std::vector<uint8_t> key;
+    if (!DeriveStreamKey(seed, key)) return false;
+    out = in;
+    Rc4(key, out);
+    return true;
 }
 bool Rc4Encrypt(const std::vector<uint8_t>& seed, const std::vector<uint8_t>& in,
                 std::vector<uint8_t>& out) {
-    Rc4 rc4;
-    return rc4.Init(seed) && rc4.Crypt(true, in, out);
+    // RC4 is symmetric.
+    return Rc4Decrypt(seed, in, out);
 }
 
 bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {

@@ -35,6 +35,9 @@ add_library(opendepot_core
     src/adk.cpp
     src/flashcode_db.cpp
     src/model_db.cpp
+    src/crypto/md5.cpp
+    src/crypto/rc4.cpp
+    src/crypto/sha256.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 
@@ -47,7 +50,7 @@ target_include_directories(opendepot_core PUBLIC
 target_include_directories(opendepot_core PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_link_libraries(opendepot_core PUBLIC ole32 advapi32)
+target_link_libraries(opendepot_core PUBLIC ole32)
 
 if(OPENDEPOT_BUILD_C_API)
     add_library(opendepot_c

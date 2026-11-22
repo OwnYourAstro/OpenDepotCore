@@ -10,10 +10,11 @@ back the Qt desktop app, a CLI, a WebAssembly build, and Android. The container
 and crypto layers still use OLE2 and CryptoAPI on Windows until M2 replaces
 them.
 
-> **Status: M1 extraction.** The legacy codeplug layer (`adk`, `flashcode`,
+> **Status: M2 in progress.** The legacy codeplug layer (`adk`, `flashcode`,
 > `model`) now lives here, builds as `opendepot_core`, and the `opendepot-cli`
-> harness reproduces the M0 fixture outputs exactly. The build is Windows-only
-> until M2 replaces OLE2 and CryptoAPI with portable implementations.
+> harness reproduces the M0 fixture outputs exactly. Portable MD5, RC4
+> (CryptoAPI-compatible), and SHA-256 replace the Windows crypto dependency. The
+> OLE2 container is still Windows-only; a portable CFB backend is next.
 
 ## Layout
 
@@ -24,6 +25,7 @@ src/adk.cpp                 container, records, identity, report, doctor, diff
 src/flashcode_db.cpp        FLASHcode platforms
 src/model_db.cpp src/model_db.h   generated model schemas (internal)
 src/version.cpp             version surface
+src/crypto/                 portable MD5, RC4, SHA-256
 src/capi/                   C ABI implementation
 src/container/ src/crypto/ src/model/ src/flashcode/ src/report/ src/doctor/
 src/diff/ src/radio/        target layout for the M2/M3 split

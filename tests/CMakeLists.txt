@@ -8,6 +8,10 @@ if(TARGET opendepot_c)
 endif()
 add_test(NAME version COMMAND opendepot_version_test)
 
+add_executable(opendepot_crypto_test crypto_test.cpp)
+target_link_libraries(opendepot_crypto_test PRIVATE opendepot_core)
+add_test(NAME crypto COMMAND opendepot_crypto_test)
+
 add_test(
     NAME fixtures
     COMMAND ${CMAKE_COMMAND}
