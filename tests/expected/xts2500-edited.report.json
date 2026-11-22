@@ -1,0 +1,16 @@
+{
+  "model": "H46UCF9PW6BN",
+  "serial": "TEST000001",
+  "version": "010000",
+  "flashcode": "500008-000488-2",
+  "features": ["ASTRO Digital Operation", "SmartZone Omnilink", "Front Panel Programming", "AES-256 Encryption", "12.5 kHz Channel Spacing", "Dynamic Dual Mode"],
+  "passcode": {"present": true, "enabled": false, "value": ""},
+  "banner": "",
+  "zones": [
+    {"name": "CORE TEST", "channels": [
+      {"name": "CH TEST", "rx": 851.012500, "tx": 806.012500}
+    ]}
+  ],
+  "records": 147,
+  "records_ok": 147
+}

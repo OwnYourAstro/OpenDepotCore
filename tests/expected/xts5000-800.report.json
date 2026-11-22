@@ -1,0 +1,16 @@
+{
+  "model": "H18UCC9PW5AN",
+  "serial": "TEST000002",
+  "version": "010000",
+  "flashcode": "100008-000482-7",
+  "features": ["SmartZone Omnilink", "Front Panel Programming", "AES-256 Encryption", "12.5 kHz Channel Spacing", "Radio Inhibit (Stun/Kill)"],
+  "passcode": {"present": true, "enabled": false, "value": ""},
+  "banner": "",
+  "zones": [
+    {"name": "", "channels": [
+      {"name": "", "rx": 806.012500, "tx": 851.062500}
+    ]}
+  ],
+  "records": 141,
+  "records_ok": 141
+}

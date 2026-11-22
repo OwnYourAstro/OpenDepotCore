@@ -1,0 +1,212 @@
+{
+    "schema":  1,
+    "generator":  "opendepot-cli m0-baseline: --create-new plus zone/channel edits",
+    "encoding":  "utf-8, LF",
+    "fixtures":  [
+                     {
+                         "file":  "mt1500-800.cpg",
+                         "bytes":  24064,
+                         "sha256":  "1d36f7a2de20bfe9c9bdb4d1d590d7215ad170e60006b0de027658257c6b5872",
+                         "expected":  [
+                                          {
+                                              "file":  "mt1500-800.doctor.txt",
+                                              "bytes":  25,
+                                              "sha256":  "65440249d5e1f23aa7a249e337497fc00d1212300eca7155d1c38d143502fd89"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.dump.txt",
+                                              "bytes":  7621,
+                                              "sha256":  "d5da755322cb9a5c0497115898d80339bcf641e8ac6e8b7c3dcebe59ba5506db"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.flashcode.txt",
+                                              "bytes":  130,
+                                              "sha256":  "b93442f4de3ed186b6f5e3efa7a6207dac36bce1018b320aa95547b20f5ed8c6"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.records.txt",
+                                              "bytes":  3072,
+                                              "sha256":  "6b50315c0b2792bf40a652d364cde177a22aa76eb7be4d0a36da7e09080a3855"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.report.json",
+                                              "bytes":  405,
+                                              "sha256":  "999824661ddfed076acba6ce5e30cb23bd54530a97aae330f5e9b84b4ed2f8bc"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.report.txt",
+                                              "bytes":  328,
+                                              "sha256":  "621b10c356a6935cfd6eed1872846b42851e0fc40a690ab1b41794ea7dacf12d"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.verify.txt",
+                                              "bytes":  101,
+                                              "sha256":  "5dc87b5fd734fceb091ed612b934138a0b03c423897b2835d8ec3fc5eac99949"
+                                          },
+                                          {
+                                              "file":  "mt1500-800.zones.txt",
+                                              "bytes":  86,
+                                              "sha256":  "688c33283e791e8ebf518dcaa37fa828455962867e6f0e137052678b05bd9a8c"
+                                          }
+                                      ]
+                     },
+                     {
+                         "file":  "xts2500-800.cpg",
+                         "bytes":  35840,
+                         "sha256":  "1f8bb888efbefdae1a7765eafb42099bf112e54323a5aba4c7f79a7a2aa52b63",
+                         "expected":  [
+                                          {
+                                              "file":  "xts2500-800.doctor.txt",
+                                              "bytes":  25,
+                                              "sha256":  "65440249d5e1f23aa7a249e337497fc00d1212300eca7155d1c38d143502fd89"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.dump.txt",
+                                              "bytes":  11990,
+                                              "sha256":  "146d091284b23de6c307f04a160eb8a2758c6c2de25d14f711bfaa6174223070"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.flashcode.txt",
+                                              "bytes":  213,
+                                              "sha256":  "dbbcbf7b9b651a390dd175efe6c86e20613a04926409466db1f9dacef0d1ea6a"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.records.txt",
+                                              "bytes":  4941,
+                                              "sha256":  "37226b48f946a4531653293fa220cd814d8765257e0c786b703e7875419a9cba"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.report.json",
+                                              "bytes":  515,
+                                              "sha256":  "6e05b78ef369cb803ee76d137bfc479a419cff5f93d34d368ca54fe4664ebf2e"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.report.txt",
+                                              "bytes":  444,
+                                              "sha256":  "afe0a3b59ebca7a0ad420e12917414a8a3db3ee317be6c7105bdb5cd2d328142"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.verify.txt",
+                                              "bytes":  103,
+                                              "sha256":  "a6c6ce6e7cad2b7aaf9b2ee3c19092bc3edd28631e92207aea639f8e036412ac"
+                                          },
+                                          {
+                                              "file":  "xts2500-800.zones.txt",
+                                              "bytes":  89,
+                                              "sha256":  "abff745b3e8e5aed9047fa99b5f06fbb9a1037205e31c8dceccc3ce2bbdf7794"
+                                          }
+                                      ]
+                     },
+                     {
+                         "file":  "xts2500-edited.cpg",
+                         "bytes":  35840,
+                         "sha256":  "b966c43a3fa725310ac6e325de41d7544ead6a607a27578f8b476c2d967812e7",
+                         "expected":  [
+                                          {
+                                              "file":  "xts2500-edited.doctor.txt",
+                                              "bytes":  25,
+                                              "sha256":  "65440249d5e1f23aa7a249e337497fc00d1212300eca7155d1c38d143502fd89"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.dump.txt",
+                                              "bytes":  11990,
+                                              "sha256":  "fcedc2a6019d49f5146fd806c987fc881c74af088aff2e3c297b658d99658b31"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.flashcode.txt",
+                                              "bytes":  213,
+                                              "sha256":  "dbbcbf7b9b651a390dd175efe6c86e20613a04926409466db1f9dacef0d1ea6a"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.records.txt",
+                                              "bytes":  4941,
+                                              "sha256":  "663d9b70f8ec799908d53b6da3f264a042216755a398a77d6bfe22cd80249c68"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.report.json",
+                                              "bytes":  522,
+                                              "sha256":  "28e5114ac77de6c2efd8de712e8288c921961bdf2c1f96f3d1d6459ac9f57596"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.report.txt",
+                                              "bytes":  450,
+                                              "sha256":  "0fc6708c415884c8c001478231325b647f13078df385088870aab71ba27250fb"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.verify.txt",
+                                              "bytes":  103,
+                                              "sha256":  "a6c6ce6e7cad2b7aaf9b2ee3c19092bc3edd28631e92207aea639f8e036412ac"
+                                          },
+                                          {
+                                              "file":  "xts2500-edited.zones.txt",
+                                              "bytes":  95,
+                                              "sha256":  "e00a799b8ee746cca972b6d77b96b75d049f4c4727661529508ba591f377397b"
+                                          }
+                                      ]
+                     },
+                     {
+                         "file":  "xts5000-800.cpg",
+                         "bytes":  34816,
+                         "sha256":  "875a652794a1876ded2658fe6239c813f7fd29be0dba9c3c57fb2fcd0dec016f",
+                         "expected":  [
+                                          {
+                                              "file":  "xts5000-800.doctor.txt",
+                                              "bytes":  25,
+                                              "sha256":  "65440249d5e1f23aa7a249e337497fc00d1212300eca7155d1c38d143502fd89"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.dump.txt",
+                                              "bytes":  11305,
+                                              "sha256":  "3ec2c34d0e962c0494ca9f0193948e24bbca261aa765643b720ad0604528153e"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.flashcode.txt",
+                                              "bytes":  176,
+                                              "sha256":  "0234ca92c252e736052c1e9c24b75f3b9bcd85c29c7b316e2482d0f8bb177f36"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.records.txt",
+                                              "bytes":  4735,
+                                              "sha256":  "c0419094032be8018827a5fbd933a34905a419907e9e440b8fb6ddaa61e51e4a"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.report.json",
+                                              "bytes":  487,
+                                              "sha256":  "bafb95e366f94631ed1a6bcf71077f5d15ce5ba6b8f5b2a86d720a1b051aa036"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.report.txt",
+                                              "bytes":  419,
+                                              "sha256":  "2053d4c89fd313db83f3db3562563d6b7039d81f6a9319c8e3a6aa8a0096c905"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.verify.txt",
+                                              "bytes":  103,
+                                              "sha256":  "9dbb67700dd71638da152774f35fceeca5e12b3dfd48b94e83452fd351ae129c"
+                                          },
+                                          {
+                                              "file":  "xts5000-800.zones.txt",
+                                              "bytes":  86,
+                                              "sha256":  "688c33283e791e8ebf518dcaa37fa828455962867e6f0e137052678b05bd9a8c"
+                                          }
+                                      ]
+                     }
+                 ],
+    "shared":  [
+                   {
+                       "file":  "diff-xts2500-xts5000.txt",
+                       "bytes":  1973,
+                       "sha256":  "b23cfd254bcb9f8282e8018a55ad8228dc5766e0bde60295153383885f792254"
+                   },
+                   {
+                       "file":  "diff-xts2500-xts5000.json",
+                       "bytes":  876,
+                       "sha256":  "5412db96ee7fa9e13730571d9c468de72bdfe26143130414095097f0d0e089eb"
+                   },
+                   {
+                       "file":  "models.txt",
+                       "bytes":  570,
+                       "sha256":  "056bbdc87285c644897954f293be95f5157ea1ae64c8cb2d04cfd9af83f81c59"
+                   }
+               ]
+}

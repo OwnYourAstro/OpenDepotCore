@@ -1,0 +1,3 @@
+model=H67UCC9PW5AN serial=TEST000003 encType=1 adkType=2
+seed=A8Z6J9QP5
+records=92 verified=92 bad=0

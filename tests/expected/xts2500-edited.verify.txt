@@ -1,0 +1,3 @@
+model=H46UCF9PW6BN serial=TEST000001 encType=1 adkType=2
+seed=A8Z6J9QP5
+records=147 verified=147 bad=0

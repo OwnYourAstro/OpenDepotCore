@@ -1,0 +1,20 @@
+OpenDepot service report
+Identity
+  model:  H18UCC9PW5AN
+  serial: TEST000002
+FLASHcode
+  code: 100008-000482-7
+  features:
+    - SmartZone Omnilink
+    - Front Panel Programming
+    - AES-256 Encryption
+    - 12.5 kHz Channel Spacing
+    - Radio Inhibit (Stun/Kill)
+Passcode
+  enabled: 0
+  passcode: ''
+Zones
+  Zone 1:  (1 channels)
+     1.                  rx=806.01250 tx=851.06250
+Records
+  141 records, 141 CRC-ok

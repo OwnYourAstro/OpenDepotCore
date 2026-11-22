@@ -1,0 +1,4 @@
+FLASHcode: 100001-000000-7
+platform: Astro_XTS2500
+  - Q806  ASTRO IMBE Digital Operation
+  - H35  Conventional Systems Operation

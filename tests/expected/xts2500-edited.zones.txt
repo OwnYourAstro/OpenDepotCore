@@ -1,0 +1,2 @@
+Zone 1: CORE TEST  (1 channels)
+    1. CH TEST           rx=851.01250 tx=806.01250  flags=0x40

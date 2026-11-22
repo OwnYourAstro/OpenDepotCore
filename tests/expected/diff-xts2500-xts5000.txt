@@ -1,0 +1,53 @@
+Codeplug diff
+model: H46UCF9PW6BN  ->  H18UCC9PW5AN
+serial: TEST000001  ->  TEST000002
+FLASHcode: 500008-000488-2  ->  100008-000482-7
+records: A=147 B=141  added=2 removed=8 changed=35
+  + 0x00210000 type=0x0080 size=28
+  + 0x00230000 type=0x0080 size=28
+  - 0x00160000 type=0x0080 size=18
+  - 0x00170000 type=0x0080 size=18
+  - 0x00580000 type=0x0080 size=21
+  - 0x00590000 type=0x0080 size=288
+  - 0x005A0000 type=0x0080 size=20
+  - 0x005B0000 type=0x0080 size=288
+  - 0x0FC10000 type=0x0080 size=30
+  - 0x0FC20000 type=0x0080 size=30
+  ~ 0x004A0000 type=0x0080 size=20->20
+  ~ 0x000A0000 type=0x0080 size=166->166
+  ~ 0x000B0000 type=0x0080 size=24->24
+  ~ 0x0FB10000 type=0x0080 size=20->20
+  ~ 0x00140000 type=0x0080 size=40->40
+  ~ 0x0FD90000 type=0x0080 size=33->33
+  ~ 0x000C0000 type=0x0080 size=282->282
+  ~ 0x00150000 type=0x0080 size=40->40
+  ~ 0x000D0000 type=0x0080 size=33->33
+  ~ 0x00190000 type=0x0080 size=13->17
+  ~ 0x0FF30000 type=0x0080 size=31->31
+  ~ 0x0FB30000 type=0x0080 size=29->29
+  ~ 0x001A0000 type=0x0080 size=13->17
+  ~ 0x00200000 type=0x0080 size=30->30
+  ~ 0x0FF50000 type=0x0080 size=20->20
+  ~ 0x10040000 type=0x0081 size=76->76
+  ~ 0x00340000 type=0x0080 size=24->24
+  ~ 0x00470000 type=0x0080 size=52->52
+  ~ 0x00490000 type=0x0080 size=39->39
+  ~ 0x0FFF0000 type=0x0080 size=31->31
+  ~ 0x0FAC0000 type=0x0080 size=31->31
+  ~ 0x0FAD0000 type=0x0080 size=20->20
+  ~ 0x0FAF0000 type=0x0080 size=24->24
+  ~ 0x0FB00000 type=0x0080 size=31->31
+  ~ 0x0FC70000 type=0x0080 size=31->31
+  ~ 0x0FC80000 type=0x0080 size=20->20
+  ~ 0x0FCA0000 type=0x0080 size=27->27
+  ~ 0x0FCE0000 type=0x0080 size=31->31
+  ~ 0x0FD60000 type=0x0080 size=33->33
+  ~ 0x0FDC0000 type=0x0080 size=33->33
+  ~ 0x0FE80000 type=0x0080 size=31->31
+  ~ 0x0FEC0000 type=0x0080 size=31->31
+  ~ 0x0FF70000 type=0x0080 size=32->32
+  ~ 0x10050000 type=0x0081 size=51->51
+  ~ 0x10060000 type=0x0081 size=32->32
+zones: A=1 B=1
+  ~ zone 1 name Z1  -> 
+    ~ ch 1 name CHAN 1 -> 

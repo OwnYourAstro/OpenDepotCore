@@ -1,0 +1,232 @@
+model=H18UCC9PW5AN serial=TEST000002 encType=1 adkType=2
+seed=A8Z6J9QP5
+records=141 verified=141 bad=0
+--- records ---
+0x000A0000  strm=1    size=166   type=0x0080  csum=0x6AE5
+    |......A.....<...........(..........@........0.....................,?.......<....................|
+0x000B0000  strm=2    size=24    type=0x0080  csum=0x85B1
+    |..(..((..... ...|
+0x000C0000  strm=3    size=282   type=0x0080  csum=0x307A
+0x000D0000  strm=4    size=33    type=0x0080  csum=0xF63C
+    |.....2...................|
+0x00140000  strm=5    size=40    type=0x0080  csum=0x6A61
+    |.........&&&&&.&H&&&.&&&&&.&&&&&|
+0x00150000  strm=6    size=40    type=0x0080  csum=0x6A61
+    |.........&&&&&.&H&&&.&&&&&.&&&&&|
+0x00180000  strm=7    size=13    type=0x0080  csum=0x19C3
+0x00190000  strm=8    size=17    type=0x0080  csum=0x1967
+    |.. ...!..|
+0x001A0000  strm=9    size=17    type=0x0080  csum=0x17E4
+    |.."...#..|
+0x001B0000  strm=10   size=114   type=0x0080  csum=0x85AE
+    |.....1.1.-.....0.1.2.3.0.1.2.30"1"2"3"4"5"6"7"8"9":";"C..............D.EA..4..PWQXR@SAp.q.r.s.t.|
+0x00200000  strm=11   size=30    type=0x0080  csum=0x798F
+    |............`.a#b....#|
+0x00210000  strm=12   size=28    type=0x0080  csum=0x76A7
+    |........c#d#e#f#g#h#|
+0x00220000  strm=13   size=30    type=0x0080  csum=0x4368
+    |.........#..`#a#b#.#.#|
+0x00230000  strm=14   size=28    type=0x0080  csum=0x76A7
+    |........c#d#e#f#g#h#|
+0x00260000  strm=15   size=18    type=0x0080  csum=0xEE69
+    |T...&&&&P.|
+0x00270000  strm=16   size=71    type=0x0080  csum=0xFADB
+    |..(..@t............0 ...@.................@....................|
+0x00280000  strm=17   size=17    type=0x0080  csum=0x0B7E
+    | ........|
+0x00290000  strm=18   size=88    type=0x0080  csum=0x90D4
+    |.................*...*...@ <.?.,.w"D.%<......@.....<.^...%...%<..@...@...^...^..|
+0x002A0000  strm=19   size=13    type=0x0080  csum=0x4DB0
+    |....@|
+0x002C0000  strm=20   size=53    type=0x0080  csum=0x7A0E
+    |.......(.....!...............................|
+0x002D0000  strm=21   size=41    type=0x0080  csum=0x0821
+    |.        ...                    .|
+0x002F0000  strm=22   size=16    type=0x0080  csum=0x414E
+0x00300000  strm=23   size=16    type=0x0080  csum=0x414E
+0x00310000  strm=24   size=16    type=0x0080  csum=0xA591
+    |..... ..|
+0x00320000  strm=25   size=16    type=0x0080  csum=0x414E
+0x00330000  strm=26   size=16    type=0x0080  csum=0xA591
+    |..... ..|
+0x00340000  strm=27   size=24    type=0x0080  csum=0xA87B
+    |@.......#....W..|
+0x003A0000  strm=28   size=224   type=0x0080  csum=0x70A5
+0x003B0000  strm=29   size=31    type=0x0080  csum=0xFEDF
+0x003C0000  strm=30   size=120   type=0x0080  csum=0x32E2
+0x003D0000  strm=31   size=31    type=0x0080  csum=0x3E98
+0x003E0000  strm=32   size=37    type=0x0080  csum=0x3109
+    |....P0...4<..8.=....!.(.M....|
+0x003F0000  strm=33   size=27    type=0x0080  csum=0xBF18
+    |4@FPxP...... Jf..M.|
+0x00400000  strm=34   size=32    type=0x0080  csum=0x067F
+    |d.........u@..u@..u@....|
+0x00470000  strm=35   size=52    type=0x0080  csum=0x8355
+    |&...%..$....................................|
+0x00480000  strm=36   size=31    type=0x0080  csum=0x41CC
+    |........ID: .EM: .CA: .|
+0x00490000  strm=37   size=39    type=0x0080  csum=0x31D5
+    |.....d.........................|
+0x004A0000  strm=38   size=20    type=0x0080  csum=0x760C
+    |.....d......|
+0x004B0000  strm=39   size=20    type=0x0080  csum=0xD2DB
+    |.........>..|
+0x004C0000  strm=40   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x004D0000  strm=41   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x004E0000  strm=42   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x004F0000  strm=43   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x00500000  strm=44   size=18    type=0x0080  csum=0x43A8
+0x00510000  strm=45   size=41    type=0x0080  csum=0x0000
+0x00540000  strm=46   size=24    type=0x0080  csum=0xB544
+0x00570000  strm=47   size=20    type=0x0080  csum=0xD5EB
+0x005F0000  strm=48   size=18    type=0x0080  csum=0xA9A0
+0x00640000  strm=49   size=23    type=0x0080  csum=0x250D
+    |.....@.........|
+0x00650000  strm=50   size=20    type=0x0080  csum=0xC6DB
+    |.....@......|
+0x006C0000  strm=51   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x006E0000  strm=52   size=33    type=0x0080  csum=0x9F8F
+    |.....2..LIST 1...........|
+0x00700000  strm=53   size=20    type=0x0080  csum=0x541B
+    |...).d......|
+0x00710000  strm=54   size=20    type=0x0080  csum=0x5F9E
+    |...3........|
+0x00730000  strm=55   size=55    type=0x0080  csum=0x1206
+0x00740000  strm=56   size=40    type=0x0080  csum=0x09A2
+    |..........4...lD......,....@..S.|
+0x00750000  strm=57   size=20    type=0x0080  csum=0xC7E9
+    |.....@......|
+0x0F9F0000  strm=58   size=20    type=0x0080  csum=0xB861
+0x0FA00000  strm=59   size=20    type=0x0080  csum=0x3896
+    |.....d.2....|
+0x0FA10000  strm=60   size=254   type=0x0080  csum=0x8A4B
+0x0FA10001  strm=61   size=254   type=0x0080  csum=0x9187
+0x0FA10002  strm=62   size=254   type=0x0080  csum=0x68DC
+0x0FA10003  strm=63   size=254   type=0x0080  csum=0xED98
+0x0FA60000  strm=64   size=21    type=0x0080  csum=0xE262
+    |.....(.......|
+0x0FA80000  strm=65   size=40    type=0x0080  csum=0x7782
+0x0FA90000  strm=66   size=32    type=0x0080  csum=0xFBAA
+0x0FAA0000  strm=67   size=65    type=0x0080  csum=0x3015
+    |......MESSAGE 1..........................................|
+0x0FAB0000  strm=68   size=55    type=0x0080  csum=0x68DA
+    |......USERNAME 1...............................|
+0x0FAC0000  strm=69   size=31    type=0x0080  csum=0xE891
+    |......CAL 1............|
+0x0FAD0000  strm=70   size=20    type=0x0080  csum=0x8307
+    |.....d......|
+0x0FAE0000  strm=71   size=19    type=0x0080  csum=0x90F8
+    |.......5..)|
+0x0FAF0000  strm=72   size=24    type=0x0080  csum=0x3076
+    |.....d.d........|
+0x0FB00000  strm=73   size=31    type=0x0080  csum=0xE891
+    |......CAL 1............|
+0x0FB10000  strm=74   size=20    type=0x0080  csum=0xB505
+    |.....d......|
+0x0FB20000  strm=75   size=18    type=0x0080  csum=0x1E7D
+    |.......4Vx|
+0x0FB30000  strm=76   size=29    type=0x0080  csum=0x0DD3
+    |.....d.d.............|
+0x0FB40000  strm=77   size=21    type=0x0080  csum=0x00DA
+    |`....#H.E.E.<|
+0x0FB50000  strm=78   size=26    type=0x0080  csum=0xF8A7
+    |..4Vx....*...d...<|
+0x0FBC0000  strm=79   size=29    type=0x0080  csum=0x60E7
+    |......MPL 1..........|
+0x0FBD0000  strm=80   size=18    type=0x0080  csum=0xAA51
+0x0FBE0000  strm=81   size=11    type=0x0080  csum=0x3815
+0x0FC70000  strm=82   size=31    type=0x0080  csum=0xE891
+    |......CAL 1............|
+0x0FC80000  strm=83   size=20    type=0x0080  csum=0xE89D
+    |.....d......|
+0x0FC90000  strm=84   size=16    type=0x0080  csum=0x3730
+0x0FCA0000  strm=85   size=27    type=0x0080  csum=0x4431
+    |.....d.d...........|
+0x0FCB0000  strm=86   size=23    type=0x0080  csum=0x279A
+0x0FCC0000  strm=87   size=41    type=0x0080  csum=0x3D53
+    |............<.........<....%.....|
+0x0FCD0000  strm=88   size=18    type=0x0080  csum=0x0000
+0x0FCE0000  strm=89   size=31    type=0x0080  csum=0x33CE
+    |......PHN 1............|
+0x0FCF0000  strm=90   size=32    type=0x0080  csum=0x9BF5
+0x0FD00000  strm=91   size=176   type=0x0080  csum=0xE17C
+    |.........d...2.%...d@..2.%...d@..2.%...d@..2.%...d@..2.%...d@..2.%...d@..2.%...d@..2.%...d@..2.%|
+0x0FD10000  strm=92   size=25    type=0x0080  csum=0xD42D
+    |..... ...........|
+0x0FD20000  strm=93   size=19    type=0x0080  csum=0x6770
+0x0FD30000  strm=94   size=25    type=0x0080  csum=0xD995
+    |.....0.0......"."|
+0x0FD40000  strm=95   size=25    type=0x0080  csum=0x6E21
+0x0FD50000  strm=96   size=36    type=0x0080  csum=0x0BC2
+    |.....0.0....................|
+0x0FD60000  strm=97   size=33    type=0x0080  csum=0xA372
+    |........MESSAGE..........|
+0x0FD70000  strm=98   size=15    type=0x0080  csum=0x2310
+0x0FD80000  strm=99   size=24    type=0x0080  csum=0x6F6E
+0x0FD90000  strm=100  size=33    type=0x0080  csum=0x4412
+    |........STATUS...........|
+0x0FDA0000  strm=101  size=15    type=0x0080  csum=0x2310
+0x0FDB0000  strm=102  size=24    type=0x0080  csum=0xD354
+0x0FDC0000  strm=103  size=33    type=0x0080  csum=0xF63C
+    |.....2...................|
+0x0FDD0000  strm=104  size=23    type=0x0080  csum=0xB524
+0x0FDE0000  strm=105  size=24    type=0x0080  csum=0x3BE9
+    |.....2.2........|
+0x0FDF0000  strm=106  size=19    type=0x0080  csum=0x45A0
+0x0FE00000  strm=107  size=24    type=0x0080  csum=0xCA6F
+0x0FE10000  strm=108  size=21    type=0x0080  csum=0xD8E8
+0x0FE20000  strm=109  size=19    type=0x0080  csum=0x4591
+0x0FE30000  strm=110  size=10    type=0x0080  csum=0x0000
+0x0FE40000  strm=111  size=41    type=0x0080  csum=0x41FB
+0x0FE50000  strm=112  size=26    type=0x0080  csum=0x5CA4
+0x0FE60000  strm=113  size=51    type=0x0080  csum=0x3C46
+    |.....x .....0.((...........................|
+0x0FE70000  strm=114  size=142   type=0x0080  csum=0x7CCA
+    |..................d. .......................&.&.&.&........................<........@...........|
+0x0FE80000  strm=115  size=31    type=0x0080  csum=0xF031
+0x0FE90000  strm=116  size=20    type=0x0080  csum=0x426A
+    |.....d......|
+0x0FEA0000  strm=117  size=18    type=0x0080  csum=0xAA51
+0x0FEB0000  strm=118  size=32    type=0x0080  csum=0xD41D
+    |.....d.2................|
+0x0FEC0000  strm=119  size=31    type=0x0080  csum=0xF031
+0x0FED0000  strm=120  size=20    type=0x0080  csum=0x9EAA
+    |.....d......|
+0x0FEE0000  strm=121  size=17    type=0x0080  csum=0x76B4
+0x0FEF0000  strm=122  size=27    type=0x0080  csum=0xBFEB
+    |.....d.d...........|
+0x0FF00000  strm=123  size=59    type=0x0080  csum=0x7DE1
+0x0FF10000  strm=124  size=38    type=0x0080  csum=0x20F3
+0x0FF20000  strm=125  size=19    type=0x0080  csum=0x83B3
+0x0FF30000  strm=126  size=31    type=0x0080  csum=0xDB09
+0x0FF40000  strm=127  size=31    type=0x0080  csum=0x417D
+    |......CALL 1...........|
+0x0FF50000  strm=128  size=20    type=0x0080  csum=0x7468
+    |.....d......|
+0x0FF60000  strm=129  size=18    type=0x0080  csum=0xAA51
+0x0FF70000  strm=130  size=32    type=0x0080  csum=0x46CE
+    |.....d.d................|
+0x0FF80000  strm=131  size=33    type=0x0080  csum=0xA290
+    |........TG 00002.........|
+0x0FF90000  strm=132  size=22    type=0x0080  csum=0x6EE7
+0x0FFA0000  strm=133  size=68    type=0x0080  csum=0x0E43
+    |P..................5....<...................................|
+0x0FFB0000  strm=134  size=83    type=0x0080  csum=0xA056
+    |.....@t............" ..........................................&&&&........|
+0x0FFC0000  strm=135  size=23    type=0x0080  csum=0xA911
+    |...#...........|
+0x0FFD0000  strm=136  size=49    type=0x0080  csum=0x0222
+    |..........d*.........D.%<..%<....@.......|
+0x0FFE0000  strm=137  size=20    type=0x0080  csum=0x5334
+0x0FFF0000  strm=138  size=31    type=0x0080  csum=0xF031
+0x10040000  strm=139  size=76    type=0x0081  csum=0xFC47
+    |..TEST000002.H18UCC9PW5AN.....................&......$..&...%F......|
+0x10050000  strm=140  size=51    type=0x0081  csum=0x85B2
+    |..2.x..4.................0.................|
+0x10060000  strm=141  size=32    type=0x0081  csum=0xDED6
+    |........100008-000482-7.|

@@ -1,0 +1,16 @@
+{
+  "model": "H67UCC9PW5AN",
+  "serial": "TEST000003",
+  "version": "010000",
+  "flashcode": "100001-000000-7",
+  "features": ["SmartZone Omnilink", "Federal Government FPP"],
+  "passcode": {"present": true, "enabled": false, "value": ""},
+  "banner": "",
+  "zones": [
+    {"name": "", "channels": [
+      {"name": "", "rx": 806.012500, "tx": 851.062500}
+    ]}
+  ],
+  "records": 92,
+  "records_ok": 92
+}

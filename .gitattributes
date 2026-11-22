@@ -1,0 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Sarah Rose
+# SPDX-License-Identifier: MIT
+
+* text=auto eol=lf
+*.cpg binary
+*.bin binary
+*.png binary

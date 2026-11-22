@@ -1,0 +1,6 @@
+FLASHcode: 500008-000488-2
+platform: Astro_XTS2500
+  - Q806  ASTRO IMBE Digital Operation
+  - H14  Enhanced Digital ID Display
+  - H38  SmartZone Systems Operation
+  - Q173  SmartZone Omnilink MultiZone Operation

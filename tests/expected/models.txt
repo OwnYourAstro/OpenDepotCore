@@ -1,0 +1,29 @@
+Bands:  800 MHz  VHF  UHF  900 MHz  
+Radios: XTS2500  XTS5000  SSE5000  XTS1500  MT1500  PR1500  XTS4000  XTL5000  XTS2000/ATS3000  
+Types:  Model I  Model II  Model III  ALL  
+Models:
+  UHF      XTS5000    Model III  H46UCF9PW6BN
+  UHF      XTS5000    Model II   H46UCF9PW6AN
+  UHF      XTS5000    Model I    H46UCF9PW6BN
+
+Packages (XTS5000):
+  3600 Analog Trunk Data
+  3600 Digital Trunk Data
+  9600 Digital Trunk Data
+  P25 MDC Conv Data
+  Analog Cnv Data
+Add-ons (XTS5000):
+  Q387
+  H43
+  G857
+  H37
+  H869
+  Q498
+  Q53
+  H46
+  H04
+  H02
+  Q445
+  H345
+  Q507
+  Q369

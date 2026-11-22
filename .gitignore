@@ -1,0 +1,25 @@
+# build output
+/build/
+/out/
+CMakeFiles/
+CMakeUserPresets.json
+*.obj
+*.exe
+*.lib
+*.exp
+*.pdb
+*.ilk
+*.idb
+*~
+
+# editors
+.vs/
+.vscode/
+.idea/
+
+# python
+__pycache__/
+*.pyc
+
+# local runtime
+*.spm
