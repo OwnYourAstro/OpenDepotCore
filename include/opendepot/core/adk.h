@@ -180,6 +180,13 @@ bool CopyTrunking(Codeplug& dst, const Codeplug& src, std::string& err);
 double WordToMHz(uint32_t word);
 uint32_t MHzToWord(double mhz);
 
+// Record access helpers shared by the CLI and the codeplug model.
+Record* FindRecord(Codeplug& cp, uint16_t tag, uint16_t inst);
+const Record* FindRecord(const Codeplug& cp, uint16_t tag, uint16_t inst);
+std::vector<uint8_t> RecordPayload(const Record& r);
+bool SetItemPayload(Codeplug& cp, uint16_t tag, uint16_t inst,
+                    const std::vector<uint8_t>& payload);
+
 uint16_t Crc16Ccitt(const uint8_t* p, size_t n);
 
 bool AdkCustomDecrypt(const std::vector<uint8_t>& in, std::vector<uint8_t>& out);

@@ -33,12 +33,45 @@ byte-for-byte against Windows OLE and CryptoAPI output.
 > 2500 and left it unprogrammed; the complete set carries 96 tags and the bad
 > read was missing `0x0016`, `0x0FFD`, and `0x0FFF`.
 
+## Codeplug model
+
+`opendepot/core/model.h` is the CPS-style object model the GUI and CLI share.
+`CodeplugModel` wraps a loaded `Codeplug` and decodes it into:
+
+- Radio information (serial, model, FLASHcode, record count).
+- Zones and channels with name, RX/TX MHz, RX/TX squelch, flags and the raw
+  35-byte channel entry.
+- Per-channel conventional personality (`0x0FFB`) and ASTRO data (`0x0FCD`).
+- Status and Message alias lists (`0x0059`, `0x005B`).
+- Named lists (`0x004C`/`0x004D`/`0x004E`/`0x004F`/`0x006C`/`0x006E`).
+- Scan-list membership tables (`0x0FA1`).
+- A CPS section tree mirroring Digital / Radio Configuration / Conventional /
+  Scan / Zone Channel Assignment, each tagged `verified`, `inferred` or
+  `unknown` and linked to the records that back it.
+
+Beyond typed entities, every record is exposed as a `RecordNode` with its tag,
+instance, section, detected structure family (`name_table`, `name`, `list_page`,
+`references`, `blob`), decoded names, resolved references, strings, and raw
+payload. The corpus used to derive this covers 33 codeplugs and 149 tags with
+**no unmapped records**.
+
+Typed setters (`SetZoneName`, `SetChannelName`, `SetChannelFrequency`,
+`SetChannelSquelch`, `SetChannelFlags`, `SetAliasEntry`, ...) mutate the
+underlying records; `Save` rewrites CRCs and the directory. Unknown bytes are
+preserved, and `SetRecordPayload` is the expert escape hatch.
+
+`opendepot-cli --model <in.cpg>` prints every decoded node as JSON, and
+`--schema` prints the tag/section catalog. `--hex <in.cpg> <tag> [inst]` /
+`--hexall` dump raw record payloads. `tools/analyze_schema.py` builds a
+multi-codeplug catalog from `--hexall` dumps.
+
 ## Layout
 
 ```
-include/opendepot/core/     public C++ API (adk.h, version.h)
+include/opendepot/core/     public C++ API (adk.h, model.h, version.h)
 include/opendepot/opendepot_c.h   stable C ABI
 src/adk.cpp                 container, records, identity, report, doctor, diff
+src/model/codeplug_model.cpp  CPS-style codeplug object model
 src/flashcode_db.cpp        FLASHcode platforms
 src/model_db.cpp src/model_db.h   generated model schemas (internal)
 src/version.cpp             version surface

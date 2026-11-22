@@ -28,6 +28,11 @@ target_link_libraries(opendepot_validate_test PRIVATE opendepot_core)
 add_test(NAME validate
     COMMAND opendepot_validate_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg)
 
+add_executable(opendepot_model_test model_test.cpp)
+target_link_libraries(opendepot_model_test PRIVATE opendepot_core)
+add_test(NAME model
+    COMMAND opendepot_model_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg)
+
 add_test(
     NAME fixtures
     COMMAND ${CMAKE_COMMAND}

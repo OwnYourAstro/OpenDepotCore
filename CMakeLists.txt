@@ -33,6 +33,7 @@ add_library(opendepot_core
     src/crypto/sha256.cpp
     src/container/cfb.cpp
     src/model/read_requests.cpp
+    src/model/codeplug_model.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 

@@ -709,12 +709,12 @@ std::vector<std::string> DecodeFlashcode(const std::string& platform,
     return out;
 }
 
-static Record* FindRecord(Codeplug& cp, uint16_t tag, uint16_t inst) {
+Record* FindRecord(Codeplug& cp, uint16_t tag, uint16_t inst) {
     for (auto& r : cp.records)
         if ((r.id >> 16) == tag && (r.id & 0xFFFF) == inst) return &r;
     return nullptr;
 }
-static const Record* FindRecord(const Codeplug& cp, uint16_t tag, uint16_t inst) {
+const Record* FindRecord(const Codeplug& cp, uint16_t tag, uint16_t inst) {
     for (const auto& r : cp.records)
         if ((r.id >> 16) == tag && (r.id & 0xFFFF) == inst) return &r;
     return nullptr;
@@ -1043,10 +1043,11 @@ bool CreateCodeplug(const Codeplug& templ, const CreateOptions& opt, Codeplug& o
     return true;
 }
 
-static std::vector<uint8_t> PayloadOf(const Record& r) {
+std::vector<uint8_t> RecordPayload(const Record& r) {
     if (r.raw.size() < 8) return {};
     return std::vector<uint8_t>(r.raw.begin() + 6, r.raw.end() - 2);
 }
+static std::vector<uint8_t> PayloadOf(const Record& r) { return RecordPayload(r); }
 static std::string AsciiField(const std::vector<uint8_t>& p, size_t off, size_t maxlen) {
     size_t n = 0;
     while (n < maxlen && off + n < p.size() && p[off + n]) ++n;

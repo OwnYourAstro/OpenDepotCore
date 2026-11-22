@@ -3,6 +3,7 @@
 
 #include "opendepot/core/adk.h"
 #include "opendepot/core/crypto.h"
+#include "opendepot/core/model.h"
 #include "opendepot/core/radio.h"
 
 #include <windows.h>
@@ -11,10 +12,51 @@
 #include <cstdio>
 #include <cwchar>
 #include <algorithm>
+#include <map>
 #include <string>
 #include <vector>
 
 using namespace opendepot;
+
+static std::string JsonStr(const std::string& s) {
+    std::string o = "\"";
+    for (char c : s) {
+        switch (c) {
+            case '"': o += "\\\""; break;
+            case '\\': o += "\\\\"; break;
+            case '\n': o += "\\n"; break;
+            case '\r': o += "\\r"; break;
+            case '\t': o += "\\t"; break;
+            default:
+                if (static_cast<unsigned char>(c) < 0x20) {
+                    char b[8];
+                    std::snprintf(b, sizeof(b), "\\u%04X", static_cast<unsigned>(c));
+                    o += b;
+                } else {
+                    o += c;
+                }
+        }
+    }
+    o += "\"";
+    return o;
+}
+
+static void PrintRecordHex(const Record& r) {
+    const size_t payloadLen = r.raw.size() >= 8 ? r.raw.size() - 8 : 0;
+    printf("record 0x%08X  payload=%zu  type=0x%04X\n", r.id, payloadLen, r.type);
+    for (size_t i = 0; i < payloadLen; i += 16) {
+        printf("  %04zX  ", i);
+        const size_t n = std::min<size_t>(16, payloadLen - i);
+        for (size_t j = 0; j < n; ++j) printf("%02X ", r.raw[6 + i + j]);
+        for (size_t j = n; j < 16; ++j) printf("   ");
+        printf(" |");
+        for (size_t j = 0; j < n; ++j) {
+            const uint8_t c = r.raw[6 + i + j];
+            putchar(c >= 0x20 && c < 0x7F ? c : '.');
+        }
+        printf("|\n");
+    }
+}
 
 static void PrintRecordCsv(const Codeplug& cp) {
     printf("id,stream,size,type,checksum,verified\n");
@@ -557,6 +599,10 @@ int wmain(int argc, wchar_t** argv) {
         printf("  opendepot-cli --verify <in.cpg>\n");
         printf("  opendepot-cli --dump <in.cpg>\n");
         printf("  opendepot-cli --records <in.cpg>\n");
+        printf("  opendepot-cli --model <in.cpg>\n");
+        printf("  opendepot-cli --schema <in.cpg>\n");
+        printf("  opendepot-cli --hex <in.cpg> <tagHex> [instHex]\n");
+        printf("  opendepot-cli --hexall <in.cpg>\n");
         printf("  opendepot-cli --clone <in.cpg> <out.cpg>\n");
         printf("  opendepot-cli --models\n");
         printf("  opendepot-cli --zones <in.cpg>\n");
@@ -629,6 +675,201 @@ int wmain(int argc, wchar_t** argv) {
             return 2;
         }
         PrintRecordCsv(cp);
+        return 0;
+    }
+    if (cmd == L"--model" && argc >= 3) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        CodeplugModel m(cp);
+        std::string err;
+        if (!m.Reload(err)) {
+            printf("MODEL FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        printf("{\n");
+        printf("  \"model\": %s,\n", JsonStr(m.Model()).c_str());
+        printf("  \"serial\": %s,\n", JsonStr(m.Serial()).c_str());
+        printf("  \"flashcode\": %s,\n", JsonStr(m.Flashcode()).c_str());
+        printf("  \"records\": %d,\n", m.RecordCount());
+        printf("  \"sections\": [\n");
+        for (size_t i = 0; i < m.Sections().size(); ++i) {
+            const auto& s = m.Sections()[i];
+            printf("    {\"id\": %s, \"group\": %s, \"name\": %s, \"confidence\": %s, \"records\": [",
+                   JsonStr(s.id).c_str(), JsonStr(s.group).c_str(), JsonStr(s.name).c_str(),
+                   JsonStr(ConfidenceName(s.confidence)).c_str());
+            for (size_t j = 0; j < s.records.size(); ++j)
+                printf("%s\"0x%08X\"", j ? ", " : "", s.records[j]);
+            printf("]}%s\n", i + 1 == m.Sections().size() ? "" : ",");
+        }
+        printf("  ],\n");
+        printf("  \"zones\": [\n");
+        for (size_t z = 0; z < m.Zones().size(); ++z) {
+            const auto& zm = m.Zones()[z];
+            printf("    {\"index\": %d, \"name\": %s, \"channels\": [\n", zm.index,
+                   JsonStr(zm.name).c_str());
+            for (size_t c = 0; c < zm.channels.size(); ++c) {
+                const auto& ch = zm.channels[c];
+                printf("      {\"index\": %d, \"channelId\": %u, \"name\": %s, "
+                       "\"rxMHz\": %.5f, \"txMHz\": %.5f, \"rxWord\": %u, \"txWord\": %u, "
+                       "\"squelchRx\": %u, \"squelchTx\": %u, \"flags\": %u, \"simplex\": %s, "
+                       "\"hasPersonality\": %s, \"hasAstro\": %s}%s\n",
+                       ch.index, unsigned(ch.channelId), JsonStr(ch.name).c_str(), ch.rxMHz,
+                       ch.txMHz, ch.rxWord, ch.txWord, unsigned(ch.squelchRx),
+                       unsigned(ch.squelchTx), unsigned(ch.flags),
+                       ch.simplex ? "true" : "false", ch.hasPersonality ? "true" : "false",
+                       ch.hasAstro ? "true" : "false",
+                       c + 1 == zm.channels.size() ? "" : ",");
+            }
+            printf("    ]}%s\n", z + 1 == m.Zones().size() ? "" : ",");
+        }
+        printf("  ],\n");
+        printf("  \"aliasLists\": [\n");
+        for (size_t i = 0; i < m.AliasLists().size(); ++i) {
+            const auto& a = m.AliasLists()[i];
+            printf("    {\"name\": %s, \"tag\": \"0x%04X\", \"capacity\": %d, "
+                   "\"confidence\": %s, \"entries\": [",
+                   JsonStr(a.name).c_str(), a.tag, a.capacity,
+                   JsonStr(ConfidenceName(a.confidence)).c_str());
+            for (size_t j = 0; j < a.entries.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(a.entries[j]).c_str());
+            printf("]}%s\n", i + 1 == m.AliasLists().size() ? "" : ",");
+        }
+        printf("  ],\n");
+        printf("  \"namedLists\": [\n");
+        for (size_t i = 0; i < m.NamedLists().size(); ++i) {
+            const auto& l = m.NamedLists()[i];
+            printf("    {\"label\": %s, \"tag\": \"0x%04X\", \"confidence\": %s, \"entries\": [",
+                   JsonStr(l.label).c_str(), l.tag,
+                   JsonStr(ConfidenceName(l.confidence)).c_str());
+            for (size_t j = 0; j < l.entries.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(l.entries[j]).c_str());
+            printf("]}%s\n", i + 1 == m.NamedLists().size() ? "" : ",");
+        }
+        printf("  ],\n");
+        printf("  \"scanLists\": [\n");
+        for (size_t i = 0; i < m.ScanLists().size(); ++i) {
+            const auto& s = m.ScanLists()[i];
+            printf("    {\"index\": %d, \"payloadBytes\": %zu, \"confidence\": %s}%s\n", s.index,
+                   s.raw.size(), JsonStr(ConfidenceName(s.confidence)).c_str(),
+                   i + 1 == m.ScanLists().size() ? "" : ",");
+        }
+        printf("  ],\n");
+        printf("  \"recordNodes\": [\n");
+        for (size_t i = 0; i < m.RecordNodes().size(); ++i) {
+            const auto& n = m.RecordNodes()[i];
+            printf("    {\"id\": \"0x%08X\", \"tag\": \"0x%04X\", \"inst\": %u, "
+                   "\"length\": %d, \"section\": %s, \"family\": %s, \"name\": %s, "
+                   "\"names\": [",
+                   n.id, n.tag, unsigned(n.inst), n.length, JsonStr(n.section).c_str(),
+                   JsonStr(n.family).c_str(), JsonStr(n.name).c_str());
+            for (size_t j = 0; j < n.names.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(n.names[j]).c_str());
+            printf("], \"refs\": [");
+            for (size_t j = 0; j < n.references.size(); ++j)
+                printf("%s[\"0x%04X\", %u, %d]", j ? ", " : "", n.references[j].tag,
+                       unsigned(n.references[j].inst), n.references[j].offset);
+            printf("], \"strings\": [");
+            for (size_t j = 0; j < n.strings.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(n.strings[j]).c_str());
+            printf("], \"payload\": \"");
+            for (uint8_t b : n.payload) printf("%02X", b);
+            printf("\"}%s\n", i + 1 == m.RecordNodes().size() ? "" : ",");
+        }
+        printf("  ]\n}\n");
+        return 0;
+    }
+    if (cmd == L"--schema" && argc >= 3) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        CodeplugModel m(cp);
+        std::string err;
+        if (!m.Reload(err)) {
+            printf("MODEL FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        struct TagAgg {
+            int count = 0;
+            std::vector<int> lengths;
+            std::string section;
+            std::string family;
+            std::vector<std::string> names;
+            std::vector<std::string> strings;
+        };
+        std::map<uint16_t, TagAgg> agg;
+        for (const auto& n : m.RecordNodes()) {
+            auto& a = agg[n.tag];
+            ++a.count;
+            if (std::find(a.lengths.begin(), a.lengths.end(), n.length) == a.lengths.end())
+                a.lengths.push_back(n.length);
+            a.section = n.section;
+            if (a.family.empty()) a.family = n.family;
+            for (const auto& s : n.names)
+                if (std::find(a.names.begin(), a.names.end(), s) == a.names.end())
+                    a.names.push_back(s);
+            for (const auto& s : n.strings)
+                if (std::find(a.strings.begin(), a.strings.end(), s) == a.strings.end())
+                    a.strings.push_back(s);
+        }
+        printf("{\n  \"recordCount\": %d,\n  \"tags\": [\n", m.RecordCount());
+        size_t i = 0;
+        for (const auto& kv : agg) {
+            const auto& a = kv.second;
+            printf("    {\"tag\": \"0x%04X\", \"count\": %d, \"lengths\": [", kv.first, a.count);
+            for (size_t j = 0; j < a.lengths.size(); ++j)
+                printf("%s%d", j ? ", " : "", a.lengths[j]);
+            printf("], \"section\": %s, \"family\": %s, \"names\": [",
+                   JsonStr(a.section).c_str(), JsonStr(a.family).c_str());
+            for (size_t j = 0; j < a.names.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(a.names[j]).c_str());
+            printf("], \"strings\": [");
+            for (size_t j = 0; j < a.strings.size(); ++j)
+                printf("%s%s", j ? ", " : "", JsonStr(a.strings[j]).c_str());
+            printf("]}%s\n", ++i == agg.size() ? "" : ",");
+        }
+        printf("  ],\n  \"sections\": [\n");
+        for (size_t k = 0; k < m.Sections().size(); ++k) {
+            const auto& s = m.Sections()[k];
+            printf("    {\"id\": %s, \"group\": %s, \"name\": %s, \"confidence\": %s, "
+                   "\"records\": %zu}%s\n",
+                   JsonStr(s.id).c_str(), JsonStr(s.group).c_str(), JsonStr(s.name).c_str(),
+                   JsonStr(ConfidenceName(s.confidence)).c_str(), s.records.size(),
+                   k + 1 == m.Sections().size() ? "" : ",");
+        }
+        printf("  ]\n}\n");
+        return 0;
+    }
+    if (cmd == L"--hex" && argc >= 4) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        const uint16_t tag = static_cast<uint16_t>(wcstoul(argv[3], nullptr, 16));
+        const bool anyInst = (argc < 5);
+        const uint16_t inst = anyInst ? 0 : static_cast<uint16_t>(wcstoul(argv[4], nullptr, 16));
+        int shown = 0;
+        for (const auto& r : cp.records) {
+            if (static_cast<uint16_t>(r.id >> 16) != tag) continue;
+            if (!anyInst && static_cast<uint16_t>(r.id & 0xFFFF) != inst) continue;
+            ++shown;
+            PrintRecordHex(r);
+        }
+        if (!shown) printf("no record with tag 0x%04X\n", tag);
+        return shown ? 0 : 3;
+    }
+    if (cmd == L"--hexall" && argc >= 3) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        for (const auto& r : cp.records) PrintRecordHex(r);
         return 0;
     }
     if (cmd == L"--clone" && argc >= 4) {
