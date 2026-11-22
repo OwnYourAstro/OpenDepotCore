@@ -21,12 +21,11 @@ byte-for-byte against Windows OLE and CryptoAPI output.
 > native read-back identical, and the radio returns to AT mode after every
 > session (even after a failure).
 >
-> The native read uses a complete request set: pass a known-good codeplug as the
-> template (`--read-radio-native <port> <template.cpg> <out.cpg>`). The built-in
-> schema is still missing tags `0x0016`, `0x0FFD`, and `0x0FFF` for this model, so
-> the template-free native read is refused by the guard. The default
-> `--read-radio` / `--write-radio` remain the helper/Python paths until the
-> native schema is complete.
+> The native read now has a baked complete request set for `H46UCF9PW6BN`, so
+> `--read-radio-native <port> <out.cpg>` works standalone: 137 records,
+> 137 CRC-ok, ~20 s, validated. `--write-radio-native` is the clean-room writer:
+> 137 records, ~17 s, identical read-back. Passing a codeplug as an optional
+> second argument still overrides the request set for other models.
 >
 > Write safety: `ValidateRadioCodeplug` now refuses a codeplug that is missing
 > any tag present in a validated complete set for the tested model. This follows

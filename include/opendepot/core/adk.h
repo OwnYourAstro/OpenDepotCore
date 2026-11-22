@@ -148,6 +148,9 @@ struct ReadRequest {
     uint16_t len = 0;
 };
 void BuiltinReadRequests(std::vector<ReadRequest>& out);
+// Complete (partition, tag, instance, length) set for hardware-validated
+// models; empty for models without a validated set.
+void ModelReadRequests(const std::string& model, std::vector<ReadRequest>& out);
 bool CreateCodeplug(const Codeplug& templ, const CreateOptions& opt, Codeplug& out,
                     std::string& err);
 bool MakeConventional(Codeplug& cp, std::string& err);

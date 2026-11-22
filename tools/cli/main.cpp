@@ -864,10 +864,11 @@ int wmain(int argc, wchar_t** argv) {
             printf("OPEN FAILED: %s\n", err.c_str());
             return 2;
         }
+        std::string model;
         if (!haveTemplate) {
             opendepot::RadioInfo info;
             session->Info(info, err);
-            const std::string model = info.model.empty() ? BuiltinFirstModel() : info.model;
+            model = info.model.empty() ? BuiltinFirstModel() : info.model;
             std::string berr;
             if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
                 printf("NO TEMPLATE: %s\n", berr.c_str());
@@ -877,11 +878,18 @@ int wmain(int argc, wchar_t** argv) {
             outPath = argv[3];
         }
         std::vector<opendepot::RadioReadRequest> reqs;
-        reqs.reserve(tpl.records.size());
-        for (const auto& r : tpl.records)
-            reqs.push_back({r.type, static_cast<uint16_t>(r.id >> 16),
-                            static_cast<uint16_t>(r.id & 0xFFFF),
-                            static_cast<uint16_t>(r.raw.size() - 6)});
+        std::vector<opendepot::ReadRequest> modelReqs;
+        if (!haveTemplate) ModelReadRequests(model, modelReqs);
+        if (!modelReqs.empty()) {
+            reqs.reserve(modelReqs.size());
+            for (const auto& r : modelReqs) reqs.push_back({r.part, r.tag, r.inst, r.len});
+        } else {
+            reqs.reserve(tpl.records.size());
+            for (const auto& r : tpl.records)
+                reqs.push_back({r.type, static_cast<uint16_t>(r.id >> 16),
+                                static_cast<uint16_t>(r.id & 0xFFFF),
+                                static_cast<uint16_t>(r.raw.size() - 6)});
+        }
         std::vector<opendepot::Record> recs;
         if (!session->ReadRequests(reqs, recs, err)) {
             printf("NATIVE READ FAILED: %s\n", err.c_str());
