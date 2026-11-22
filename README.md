@@ -8,24 +8,27 @@ diff, and (as the port lands) the radio transport. It builds without any GUI
 toolkit and without Windows-only APIs, so the same core can back the Qt
 desktop app, a CLI, a WebAssembly build, and Android.
 
-> **Status: M0 scaffold.** The public CMake target, C ABI shell, fixtures, and
-> CI exist. The code move from the legacy `OpenDepot` repository lands in M1.
+> **Status: M1 extraction.** The legacy codeplug layer (`adk`, `flashcode`,
+> `model`) now lives here, builds as `opendepot_core`, and the `opendepot-cli`
+> harness reproduces the M0 fixture outputs exactly. The build is Windows-only
+> until M2 replaces OLE2 and CryptoAPI with portable implementations.
 
 ## Layout
 
 ```
-include/opendepot/core/     public C++ API (header surface)
+include/opendepot/core/     public C++ API (adk.h, version.h)
 include/opendepot/opendepot_c.h   stable C ABI
-src/container/              .cpg / OLE2-CFB container + ADK records
-src/crypto/                 MD5, RC4, SHA-256
-src/model/                  model catalog + generated tables
-src/flashcode/              FLASHcode platforms + generated tables
-src/report/ src/doctor/ src/diff/
-src/radio/                  PPP / RCMP / auth + IByteStream transports
+src/adk.cpp                 container, records, identity, report, doctor, diff
+src/flashcode_db.cpp        FLASHcode platforms
+src/model_db.cpp src/model_db.h   generated model schemas (internal)
+src/version.cpp             version surface
 src/capi/                   C ABI implementation
+src/container/ src/crypto/ src/model/ src/flashcode/ src/report/ src/doctor/
+src/diff/ src/radio/        target layout for the M2/M3 split
 data/                       generated binary resources
-tests/                      fixtures, expected outputs, unit tests
-tools/                      generators and the CLI harness
+tests/                      fixtures, expected outputs, parity + unit tests
+tools/cli/                  opendepot-cli harness over the public API
+tools/                      data generators (migrate in M2)
 docs/                       format and protocol notes
 ```
 

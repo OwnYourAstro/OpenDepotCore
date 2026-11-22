@@ -14,3 +14,14 @@ add_test(
         -DFIXTURE_ROOT=${CMAKE_CURRENT_SOURCE_DIR}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/check_fixtures.cmake
 )
+
+if(TARGET opendepot-cli)
+    add_test(
+        NAME parity
+        COMMAND ${CMAKE_COMMAND}
+            "-DCLI=$<TARGET_FILE:opendepot-cli>"
+            -DFIXTURE_DIR=${CMAKE_CURRENT_SOURCE_DIR}/fixtures
+            -DEXPECTED_DIR=${CMAKE_CURRENT_SOURCE_DIR}/expected
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/run_parity.cmake
+    )
+endif()
