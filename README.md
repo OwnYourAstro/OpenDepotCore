@@ -3,19 +3,14 @@
 MIT-licensed, portable clean-room core for the ASTRO 25 codeplug layer.
 
 This repository is the reusable half of OpenDepot. It owns the codeplug
-container, cryptography, model and FLASHcode data, reporting, doctor, diff, and
-(as the port lands) the radio transport. It has no GUI or platform dependency in
-the library itself, so the same code can back the Qt desktop app, a CLI, a
-WebAssembly build, and Android. The MS-CFB and RC4 implementations are validated
-byte-for-byte against Windows OLE and CryptoAPI output.
+container, cryptography, model and FLASHcode data, the CPS object model,
+reporting, doctor, diff, and the native radio transport. It has no GUI or
+platform dependency in the library itself, so the same code can back the Qt
+desktop app, a CLI, a WebAssembly build, and Android. The MS-CFB and RC4
+implementations are validated byte-for-byte against Windows OLE and CryptoAPI
+output.
 
-> **Status: M4 in progress.** `--read-radio` now reads by partition/tag through
-> the vendor `ReadAll` path, which returns every instance of a tag, so the
-> incomplete per-instance request list is gone. Reads are rejected by the safety
-> guard if any validated tag is missing. The pure C++ PPP/RCMP transport and
-> batched writes are the next step.
->
-> **M4d validated on hardware:** the in-tree serial/PPP/RCMP transport now reads
+> **Status: alpha (M4 complete).** The in-tree serial/PPP/RCMP transport reads
 > and writes without the vendor helper or Python. On the XTS 2500: native read
 > 137 records / 137 CRC-ok in ~16-20 s, native write 137 records in ~17 s,
 > native read-back identical, and the radio returns to AT mode after every
