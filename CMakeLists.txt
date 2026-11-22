@@ -15,14 +15,7 @@ endif()
 
 option(OPENDEPOT_BUILD_TESTS "Build OpenDepotCore tests" ON)
 option(OPENDEPOT_BUILD_C_API "Build the stable C ABI library" ON)
-option(OPENDEPOT_BUILD_CLI "Build the CLI harness" ON)
-
-# M1 is Windows-only because the container and crypto layers still use OLE2 and
-# CryptoAPI. M2 replaces both and re-enables the other platforms.
-if(NOT WIN32)
-    message(FATAL_ERROR
-        "OpenDepotCore M1 builds on Windows only. The portability work lands in M2.")
-endif()
+option(OPENDEPOT_BUILD_CLI "Build the CLI harness (Windows only)" ON)
 
 configure_file(
     cmake/version_config.h.in
@@ -38,6 +31,7 @@ add_library(opendepot_core
     src/crypto/md5.cpp
     src/crypto/rc4.cpp
     src/crypto/sha256.cpp
+    src/container/cfb.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 
@@ -50,7 +44,6 @@ target_include_directories(opendepot_core PUBLIC
 target_include_directories(opendepot_core PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-target_link_libraries(opendepot_core PUBLIC ole32)
 
 if(OPENDEPOT_BUILD_C_API)
     add_library(opendepot_c
@@ -66,11 +59,16 @@ if(OPENDEPOT_BUILD_C_API)
 endif()
 
 if(OPENDEPOT_BUILD_CLI)
-    add_executable(opendepot-cli
-        tools/cli/main.cpp
-    )
-    target_link_libraries(opendepot-cli PRIVATE opendepot_core)
-    set_target_properties(opendepot-cli PROPERTIES OUTPUT_NAME "opendepot-cli")
+    if(WIN32)
+        add_executable(opendepot-cli
+            tools/cli/main.cpp
+        )
+        target_link_libraries(opendepot-cli PRIVATE opendepot_core)
+        set_target_properties(opendepot-cli PROPERTIES OUTPUT_NAME "opendepot-cli")
+    else()
+        message(STATUS
+            "Skipping opendepot-cli: the harness still uses Win32 for process and serial I/O")
+    endif()
 endif()
 
 if(OPENDEPOT_BUILD_TESTS)

@@ -3,20 +3,20 @@
 
 #include "opendepot/core/adk.h"
 #include "opendepot/core/crypto.h"
+#include "container/cfb.h"
 
 #include <algorithm>
 #include <sstream>
 #include <unordered_map>
 #include "model_db.h"
 
-#include <windows.h>
-#include <objbase.h>
-
 #include <algorithm>
 #include <cstring>
+#include <ctime>
 #include <cmath>
 #include <cstdio>
 #include <cwchar>
+#include <filesystem>
 #include <sstream>
 #include <set>
 
@@ -47,55 +47,7 @@ std::string CStrField(const std::array<uint8_t, 800>& raw, size_t off, size_t ma
     return std::string(reinterpret_cast<const char*>(raw.data() + off), n);
 }
 
-bool ReadWholeStream(IStorage* stg, const wchar_t* name, std::vector<uint8_t>& out) {
-    IStream* s = nullptr;
-    if (FAILED(stg->OpenStream(name, nullptr, STGM_READ | STGM_SHARE_EXCLUSIVE, 0, &s))) return false;
-    STATSTG stat{};
-    if (FAILED(s->Stat(&stat, STATFLAG_NONAME))) {
-        s->Release();
-        return false;
-    }
-    const ULONGLONG size = stat.cbSize.QuadPart;
-    out.assign(static_cast<size_t>(size), 0);
-    ULONG read = 0;
-    HRESULT hr = size ? s->Read(out.data(), static_cast<ULONG>(size), &read) : S_OK;
-    s->Release();
-    return SUCCEEDED(hr) && read == size;
-}
-
-bool WriteWholeStream(IStorage* stg, const wchar_t* name, const std::vector<uint8_t>& data) {
-    IStream* s = nullptr;
-    if (FAILED(stg->CreateStream(name, STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, 0, &s)))
-        return false;
-    ULARGE_INTEGER zero{};
-    s->SetSize(zero);
-    ULONG written = 0;
-    HRESULT hr = data.empty() ? S_OK : s->Write(data.data(), static_cast<ULONG>(data.size()), &written);
-    s->Release();
-    return SUCCEEDED(hr) && written == data.size();
-}
-
 inline uint8_t Nxt(uint8_t s) { return static_cast<uint8_t>(s * 0x55 + 0x19); }
-
-
-bool EnumerateStreams(IStorage* stg, std::vector<std::pair<int, std::wstring>>& names) {
-    IEnumSTATSTG* e = nullptr;
-    if (FAILED(stg->EnumElements(0, nullptr, 0, &e))) return false;
-    STATSTG stat{};
-    ULONG fetched = 0;
-    while (e->Next(1, &stat, &fetched) == S_OK && fetched == 1) {
-        if (stat.type == STGTY_STREAM && stat.pwcsName) {
-            int num = -1;
-            if (swscanf(stat.pwcsName, L"Strm_%d", &num) == 1)
-                names.emplace_back(num, stat.pwcsName);
-        }
-        if (stat.pwcsName) CoTaskMemFree(stat.pwcsName);
-        memset(&stat, 0, sizeof(stat));
-    }
-    e->Release();
-    std::sort(names.begin(), names.end(), [](auto& a, auto& b) { return a.first < b.first; });
-    return true;
-}
 
 }  // namespace
 
@@ -160,7 +112,7 @@ bool AdkCustomDecrypt(const std::vector<uint8_t>& in, std::vector<uint8_t>& out)
 
 bool AdkCustomEncrypt(const std::vector<uint8_t>& in, std::vector<uint8_t>& out) {
     uint8_t h[9];
-    uint8_t s = static_cast<uint8_t>(GetTickCount() & 0xFF);
+    uint8_t s = static_cast<uint8_t>(std::time(nullptr) & 0xFF);
     for (int i = 0; i < 9; ++i) {
         s = Nxt(s);
         h[i] = s;
@@ -223,18 +175,15 @@ bool Rc4Encrypt(const std::vector<uint8_t>& seed, const std::vector<uint8_t>& in
     return Rc4Decrypt(seed, in, out);
 }
 
-bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {
+bool LoadCodeplug(const std::filesystem::path& path, Codeplug& cp) {
     cp = Codeplug{};
-    IStorage* root = nullptr;
-    if (FAILED(StgOpenStorage(path.c_str(), nullptr, STGM_READ | STGM_SHARE_DENY_WRITE, nullptr, 0, &root))) {
-        cp.error = "Unable to open compound file";
-        return false;
-    }
+    cfb::File file;
+    if (!file.Open(path, cp.error)) return false;
     bool ok = false;
     do {
         std::vector<uint8_t> hdr;
-        if (!ReadWholeStream(root, L"AdkFileHeader", hdr) || hdr.size() < 800) {
-            cp.error = "Missing/short AdkFileHeader";
+        if (!file.ReadRoot("AdkFileHeader", hdr, cp.error) || hdr.size() < 800) {
+            if (cp.error.empty()) cp.error = "Missing/short AdkFileHeader";
             break;
         }
         memcpy(cp.header.raw.data(), hdr.data(), 800);
@@ -259,14 +208,19 @@ bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {
             cp.seed.assign(kSeed, kSeed + 9);
         }
 
-        IStorage* dataStg = nullptr;
-        if (FAILED(root->OpenStorage(L"DataStg", nullptr, STGM_READ | STGM_SHARE_EXCLUSIVE, nullptr, 0, &dataStg))) {
-            cp.error = "Missing DataStg storage";
+        std::vector<std::string> streamNames;
+        if (!file.ListStreams("DataStg", streamNames, cp.error) || streamNames.empty()) {
+            if (cp.error.empty()) cp.error = "No Strm_* streams";
             break;
         }
-        std::vector<std::pair<int, std::wstring>> names;
-        if (!EnumerateStreams(dataStg, names) || names.empty()) {
-            dataStg->Release();
+        std::vector<std::pair<int, std::string>> names;
+        for (const auto& name : streamNames) {
+            int num = -1;
+            if (sscanf(name.c_str(), "Strm_%d", &num) == 1) names.emplace_back(num, name);
+        }
+        std::sort(names.begin(), names.end(),
+                  [](const auto& a, const auto& b) { return a.first < b.first; });
+        if (names.empty()) {
             cp.error = "No Strm_* streams";
             break;
         }
@@ -288,8 +242,8 @@ bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {
 
         for (auto& entry : names) {
             std::vector<uint8_t> raw, plain;
-            if (!ReadWholeStream(dataStg, entry.second.c_str(), raw)) {
-                cp.error = "Failed to read stream";
+            if (!file.ReadStorage("DataStg", entry.second, raw, cp.error)) {
+                if (cp.error.empty()) cp.error = "Failed to read stream";
                 break;
             }
             if (!decryptStream(raw, plain)) {
@@ -304,7 +258,6 @@ bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {
                 nums.push_back(entry.first);
             }
         }
-        dataStg->Release();
         if (!cp.error.empty()) break;
         if (!haveMap || mapRaw.size() < 12) {
             cp.error = "Missing/short Strm_0 directory";
@@ -347,12 +300,11 @@ bool LoadCodeplug(const std::wstring& path, Codeplug& cp) {
         ok = true;
     } while (false);
 
-    root->Release();
     if (!ok && cp.error.empty()) cp.error = "Unknown load error";
     return ok;
 }
 
-bool SaveCodeplug(const std::wstring& path, const Codeplug& cp, std::string& err) {
+bool SaveCodeplug(const std::filesystem::path& path, const Codeplug& cp, std::string& err) {
     err.clear();
     if (cp.records.empty()) {
         err = "No records to save";
@@ -408,47 +360,21 @@ bool SaveCodeplug(const std::wstring& path, const Codeplug& cp, std::string& err
         return false;
     }
 
-    IStorage* root = nullptr;
-    if (FAILED(StgCreateDocfile(path.c_str(),
-                                STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, &root))) {
-        err = "Unable to create compound file";
-        return false;
+    std::vector<cfb::Stream> root_streams;
+    root_streams.push_back({"AdkFileHeader", std::vector<uint8_t>(hdr.begin(), hdr.end())});
+
+    std::vector<cfb::Stream> data_streams;
+    data_streams.reserve(plains.size() + 1);
+    data_streams.push_back({"Strm_0", mapEnc});
+    for (size_t i = 0; i < plains.size(); ++i) {
+        std::vector<uint8_t> enc;
+        if (!encryptStream(plains[i], enc)) {
+            err = "Failed to encrypt data stream";
+            return false;
+        }
+        data_streams.push_back({"Strm_" + std::to_string(i + 1), std::move(enc)});
     }
-    bool ok = false;
-    do {
-        std::vector<uint8_t> headerVec(hdr.begin(), hdr.end());
-        if (!WriteWholeStream(root, L"AdkFileHeader", headerVec)) {
-            err = "Failed to write AdkFileHeader";
-            break;
-        }
-        IStorage* dataStg = nullptr;
-        if (FAILED(root->CreateStorage(L"DataStg",
-                                       STGM_CREATE | STGM_READWRITE | STGM_SHARE_EXCLUSIVE, 0, 0, &dataStg))) {
-            err = "Failed to create DataStg";
-            break;
-        }
-        bool wrote = WriteWholeStream(dataStg, L"Strm_0", mapEnc);
-        for (size_t i = 0; i < plains.size() && wrote; ++i) {
-            std::vector<uint8_t> enc;
-            if (!encryptStream(plains[i], enc)) {
-                wrote = false;
-                break;
-            }
-            wchar_t name[32];
-            swprintf(name, 32, L"Strm_%zu", i + 1);
-            wrote = WriteWholeStream(dataStg, name, enc);
-        }
-        if (wrote) dataStg->Commit(STGC_DEFAULT);
-        dataStg->Release();
-        if (!wrote) {
-            err = "Failed to write data stream";
-            break;
-        }
-        root->Commit(STGC_DEFAULT);
-        ok = true;
-    } while (false);
-    root->Release();
-    return ok;
+    return cfb::Write(path, root_streams, "DataStg", data_streams, err);
 }
 
 std::string VerifyCodeplug(const Codeplug& cp) {

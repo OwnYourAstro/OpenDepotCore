@@ -4,17 +4,17 @@ MIT-licensed, portable clean-room core for the ASTRO 25 codeplug layer.
 
 This repository is the reusable half of OpenDepot. It owns the codeplug
 container, cryptography, model and FLASHcode data, reporting, doctor, diff, and
-(as the port lands) the radio transport. It has no GUI toolkit dependency; the
-target is a core with no platform dependency either, so the same library can
-back the Qt desktop app, a CLI, a WebAssembly build, and Android. The container
-and crypto layers still use OLE2 and CryptoAPI on Windows until M2 replaces
-them.
+(as the port lands) the radio transport. It has no GUI or platform dependency in
+the library itself, so the same code can back the Qt desktop app, a CLI, a
+WebAssembly build, and Android. The MS-CFB and RC4 implementations are validated
+byte-for-byte against Windows OLE and CryptoAPI output.
 
-> **Status: M2 in progress.** The legacy codeplug layer (`adk`, `flashcode`,
-> `model`) now lives here, builds as `opendepot_core`, and the `opendepot-cli`
-> harness reproduces the M0 fixture outputs exactly. Portable MD5, RC4
-> (CryptoAPI-compatible), and SHA-256 replace the Windows crypto dependency. The
-> OLE2 container is still Windows-only; a portable CFB backend is next.
+> **Status: M2 complete.** The codeplug layer builds as a portable
+> `opendepot_core` on Windows and Linux, with no OLE32 or CryptoAPI dependency.
+> Portable MD5, CryptoAPI-compatible RC4, SHA-256, and a read/write MS-CFB
+> container replace the Windows pieces. The `opendepot-cli` harness is still
+> Windows-only because it uses Win32 process and serial I/O; that moves with the
+> radio transport port.
 
 ## Layout
 
@@ -26,6 +26,7 @@ src/flashcode_db.cpp        FLASHcode platforms
 src/model_db.cpp src/model_db.h   generated model schemas (internal)
 src/version.cpp             version surface
 src/crypto/                 portable MD5, RC4, SHA-256
+src/container/cfb.cpp       portable MS-CFB reader/writer
 src/capi/                   C ABI implementation
 src/container/ src/crypto/ src/model/ src/flashcode/ src/report/ src/doctor/
 src/diff/ src/radio/        target layout for the M2/M3 split

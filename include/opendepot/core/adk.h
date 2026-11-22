@@ -5,6 +5,7 @@
 
 #include <array>
 #include <cstdint>
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -40,8 +41,8 @@ struct Codeplug {
     std::string error;
 };
 
-bool LoadCodeplug(const std::wstring& path, Codeplug& cp);
-bool SaveCodeplug(const std::wstring& path, const Codeplug& cp, std::string& err);
+bool LoadCodeplug(const std::filesystem::path& path, Codeplug& cp);
+bool SaveCodeplug(const std::filesystem::path& path, const Codeplug& cp, std::string& err);
 std::string VerifyCodeplug(const Codeplug& cp);
 std::string DumpCodeplug(const Codeplug& cp);
 bool UpdateIdentity(Codeplug& cp, const std::string& serial, const std::string& model);

@@ -12,6 +12,17 @@ add_executable(opendepot_crypto_test crypto_test.cpp)
 target_link_libraries(opendepot_crypto_test PRIVATE opendepot_core)
 add_test(NAME crypto COMMAND opendepot_crypto_test)
 
+add_executable(opendepot_cfb_test cfb_test.cpp)
+target_link_libraries(opendepot_cfb_test PRIVATE opendepot_core)
+target_include_directories(opendepot_cfb_test PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/../src)
+if(WIN32)
+    target_link_libraries(opendepot_cfb_test PRIVATE ole32)
+endif()
+add_test(NAME cfb_xts2500
+    COMMAND opendepot_cfb_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg)
+add_test(NAME cfb_xts5000
+    COMMAND opendepot_cfb_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts5000-800.cpg)
+
 add_test(
     NAME fixtures
     COMMAND ${CMAKE_COMMAND}
