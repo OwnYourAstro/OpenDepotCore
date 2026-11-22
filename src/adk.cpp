@@ -443,6 +443,36 @@ bool UpdateIdentity(Codeplug& cp, const std::string& serial, const std::string& 
     return true;
 }
 
+namespace {
+
+// Tags present in a validated, complete codeplug for the tested model. Added
+// only for models that have been exercised end to end on hardware; an
+// incomplete radio read is missing some of these tags.
+const uint16_t* ModelRequiredTags(const std::string& model, size_t& count) {
+    if (model == "H46UCF9PW6BN") {
+        static const uint16_t kTags[] = {
+            0x000A, 0x000B, 0x000C, 0x000D, 0x0014, 0x0016, 0x0018, 0x0019,
+            0x001B, 0x0020, 0x0026, 0x0027, 0x0028, 0x0029, 0x002A, 0x002C,
+            0x002D, 0x002F, 0x0030, 0x0031, 0x0032, 0x0033, 0x0034, 0x0040,
+            0x0047, 0x0048, 0x0049, 0x004A, 0x004B, 0x004C, 0x004F, 0x0050,
+            0x0051, 0x0054, 0x0057, 0x0058, 0x0059, 0x005A, 0x005B, 0x005F,
+            0x0064, 0x0065, 0x006C, 0x006E, 0x0070, 0x0071, 0x0073, 0x0074,
+            0x0075, 0x0FA1, 0x0FA6, 0x0FAA, 0x0FAB, 0x0FAC, 0x0FAD, 0x0FAE,
+            0x0FAF, 0x0FB0, 0x0FB1, 0x0FB2, 0x0FB3, 0x0FB4, 0x0FB5, 0x0FBC,
+            0x0FBD, 0x0FBE, 0x0FC1, 0x0FC2, 0x0FC7, 0x0FC8, 0x0FC9, 0x0FCA,
+            0x0FCB, 0x0FCC, 0x0FCD, 0x0FCE, 0x0FCF, 0x0FF0, 0x0FF1, 0x0FF2,
+            0x0FF3, 0x0FF4, 0x0FF5, 0x0FF6, 0x0FF7, 0x0FF8, 0x0FF9, 0x0FFA,
+            0x0FFB, 0x0FFC, 0x0FFD, 0x0FFE, 0x0FFF, 0x1004, 0x1005, 0x1006,
+        };
+        count = sizeof(kTags) / sizeof(kTags[0]);
+        return kTags;
+    }
+    count = 0;
+    return nullptr;
+}
+
+}  // namespace
+
 bool ValidateRadioCodeplug(const Codeplug& cp, std::string& err) {
     err.clear();
     if (cp.records.empty()) {
@@ -518,6 +548,41 @@ bool ValidateRadioCodeplug(const Codeplug& cp, std::string& err) {
         err = "header model not found inside identity record 0x10040000";
         return false;
     }
+
+    // Structural completeness. Writing a codeplug that omits records can leave
+    // the radio's ISH directory inconsistent; a 96-record read of an XTS 2500
+    // that lacked tags 0x0016/0x0FFD/0x0FFF was written and left the radio
+    // unprogrammed. The minimal (conventional) schema for the model is the
+    // floor: every one of its tags must be present.
+    bool has_directory = false;
+    for (const auto& r : cp.records)
+        if (r.id == 0x00470000u) has_directory = true;
+    if (!has_directory) {
+        err = "missing ISH directory record 0x00470000";
+        return false;
+    }
+
+    size_t required_count = 0;
+    const uint16_t* required = ModelRequiredTags(cp.header.model, required_count);
+    if (required && required_count) {
+        std::set<uint16_t> present;
+        for (const auto& r : cp.records) present.insert(static_cast<uint16_t>(r.id >> 16));
+
+        std::string missing;
+        for (size_t i = 0; i < required_count; ++i) {
+            const uint16_t tag = required[i];
+            if (present.count(tag)) continue;
+            char b[16];
+            snprintf(b, sizeof(b), "%s0x%04X", missing.empty() ? "" : ", ", tag);
+            missing += b;
+        }
+        if (!missing.empty()) {
+            err = "codeplug is missing required tag(s) " + missing +
+                  "; writing an incomplete set can leave the radio unprogrammed (FAIL 01/92)";
+            return false;
+        }
+    }
+
     return true;
 }
 

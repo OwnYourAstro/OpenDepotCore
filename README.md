@@ -15,6 +15,12 @@ byte-for-byte against Windows OLE and CryptoAPI output.
 > container replace the Windows pieces. The `opendepot-cli` harness is still
 > Windows-only because it uses Win32 process and serial I/O; that moves with the
 > radio transport port.
+>
+> Write safety: `ValidateRadioCodeplug` now refuses a codeplug that is missing
+> any tag present in a validated complete set for the tested model. This follows
+> an incident where an incomplete 96-record radio read was written to an XTS
+> 2500 and left it unprogrammed; the complete set carries 96 tags and the bad
+> read was missing `0x0016`, `0x0FFD`, and `0x0FFF`.
 
 ## Layout
 

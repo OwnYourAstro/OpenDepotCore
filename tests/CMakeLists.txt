@@ -23,6 +23,11 @@ add_test(NAME cfb_xts2500
 add_test(NAME cfb_xts5000
     COMMAND opendepot_cfb_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts5000-800.cpg)
 
+add_executable(opendepot_validate_test validate_test.cpp)
+target_link_libraries(opendepot_validate_test PRIVATE opendepot_core)
+add_test(NAME validate
+    COMMAND opendepot_validate_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg)
+
 add_test(
     NAME fixtures
     COMMAND ${CMAKE_COMMAND}
