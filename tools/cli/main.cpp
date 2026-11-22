@@ -211,6 +211,9 @@ static bool RunHelper(const std::wstring& args, std::string& err, DWORD timeoutM
 }
 
 static std::wstring RawScriptPath() {
+    wchar_t env[MAX_PATH] = {};
+    const DWORD n = GetEnvironmentVariableW(L"OPENDEPOT_RADIO_SCRIPT", env, MAX_PATH);
+    if (n > 0 && n < MAX_PATH && GetFileAttributesW(env) != INVALID_FILE_ATTRIBUTES) return env;
     const std::wstring d = ExeDir();
     const wchar_t* rel[] = {L"\\..\\..\\..\\tools\\radio_tcp.py", L"\\tools\\radio_tcp.py",
                             L"\\radio_tcp.py"};
@@ -394,38 +397,49 @@ static bool ReadRadioComplete(const std::wstring& port, const Codeplug& tpl, Cod
     }
     fclose(tf);
 
-    const std::wstring rec = TempPath(L"rr.rec");
-    const bool ok =
-        RunHelper(L"--read " + port + L" \"" + tagsPath + L"\" \"" + rec + L"\"", err, 300000);
+    // The vendor COM session can fail transiently right after a write or reset.
+    // Retry once, then let the guard decide.
+    std::string last_err;
+    for (int attempt = 0; attempt < 2; ++attempt) {
+        const std::wstring rec = TempPath(L"rr.rec");
+        DeleteFileW(rec.c_str());
+        std::string herr;
+        const bool ok =
+            RunHelper(L"--read " + port + L" \"" + tagsPath + L"\" \"" + rec + L"\"", herr,
+                      300000);
+        if (!ok) {
+            DeleteFileW(rec.c_str());
+            last_err = "radio read failed: " + herr;
+        } else {
+            std::vector<uint8_t> buf;
+            if (!ReadWholeFile(rec, buf)) {
+                last_err = "read output missing";
+            } else {
+                Codeplug parsed;
+                std::string perr;
+                if (!ApplyRecBuffer(buf, tpl, parsed, perr)) {
+                    last_err = "read parse failed: " + perr;
+                } else {
+                    std::string serial, modelName;
+                    if (ReadIdentityFromCodeplug(parsed, serial, modelName))
+                        UpdateIdentity(parsed, serial, modelName);
+                    std::string verr;
+                    if (ValidateRadioCodeplug(parsed, verr)) {
+                        DeleteFileW(rec.c_str());
+                        DeleteFileW(tagsPath.c_str());
+                        out = std::move(parsed);
+                        return true;
+                    }
+                    last_err = "radio read is incomplete: " + verr;
+                }
+            }
+            DeleteFileW(rec.c_str());
+        }
+        if (attempt == 0) Sleep(1500);
+    }
     DeleteFileW(tagsPath.c_str());
-    if (!ok) {
-        DeleteFileW(rec.c_str());
-        return false;
-    }
-
-    std::vector<uint8_t> buf;
-    if (!ReadWholeFile(rec, buf)) {
-        DeleteFileW(rec.c_str());
-        err = "read output missing";
-        return false;
-    }
-    DeleteFileW(rec.c_str());
-
-    Codeplug parsed;
-    if (!ApplyRecBuffer(buf, tpl, parsed, err)) return false;
-
-    std::string serial, modelName;
-    if (ReadIdentityFromCodeplug(parsed, serial, modelName))
-        UpdateIdentity(parsed, serial, modelName);
-
-    std::string verr;
-    if (!ValidateRadioCodeplug(parsed, verr)) {
-        err = "radio read is incomplete: " + verr;
-        return false;
-    }
-
-    out = std::move(parsed);
-    return true;
+    err = last_err.empty() ? "radio read failed" : last_err;
+    return false;
 }
 
 static bool ReadRadioToCodeplug(const std::wstring& port, Codeplug& out, std::string& err,
