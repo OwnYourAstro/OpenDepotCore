@@ -82,6 +82,13 @@ struct ScanListModel {
     Confidence confidence = Confidence::inferred;
 };
 
+// Trunking System / General (0x0FE6).
+struct TrunkingSystemInfo {
+    bool present = false;
+    uint32_t wacn = 0;           // payload 0x1A, 24-bit big-endian
+    uint16_t homeSystemId = 0;   // payload 0x1E, big-endian
+};
+
 // One node of the CPS-style tree. Records lists the codeplug records that back
 // this section, so an expert view can open them directly.
 struct CodeplugSection {
@@ -134,6 +141,7 @@ public:
     const std::vector<AliasListModel>& AliasLists() const { return aliasLists_; }
     const std::vector<NamedListModel>& NamedLists() const { return namedLists_; }
     const std::vector<ScanListModel>& ScanLists() const { return scanLists_; }
+    const TrunkingSystemInfo& TrunkingSystem() const { return trunking_; }
     const std::vector<CodeplugSection>& Sections() const { return sections_; }
     const std::vector<RecordNode>& RecordNodes() const { return recordNodes_; }
     std::string SectionForTag(uint16_t tag) const;
@@ -153,6 +161,8 @@ public:
     bool SetAstroByte(int zone, int channel, int offset, uint8_t value);
     bool SetAliasEntry(int list, int index, const std::string& name);
     bool SetNamedListEntry(int list, int index, const std::string& name);
+    bool SetWacn(uint32_t wacn);
+    bool SetHomeSystemId(uint16_t id);
 
     // Expert escape hatch: replace a whole record payload (CRC is recomputed on
     // save and the decoded model is refreshed).
@@ -170,6 +180,7 @@ private:
     std::vector<AliasListModel> aliasLists_;
     std::vector<NamedListModel> namedLists_;
     std::vector<ScanListModel> scanLists_;
+    TrunkingSystemInfo trunking_;
     std::vector<CodeplugSection> sections_;
     std::vector<RecordNode> recordNodes_;
 };

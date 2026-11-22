@@ -757,6 +757,10 @@ int wmain(int argc, wchar_t** argv) {
                    i + 1 == m.ScanLists().size() ? "" : ",");
         }
         printf("  ],\n");
+        printf("  \"trunkingSystem\": {\"present\": %s, \"wacn\": %u, \"homeSystemId\": %u},\n",
+               m.TrunkingSystem().present ? "true" : "false",
+               m.TrunkingSystem().wacn,
+               static_cast<unsigned>(m.TrunkingSystem().homeSystemId));
         printf("  \"recordNodes\": [\n");
         for (size_t i = 0; i < m.RecordNodes().size(); ++i) {
             const auto& n = m.RecordNodes()[i];

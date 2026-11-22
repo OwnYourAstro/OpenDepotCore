@@ -105,14 +105,14 @@ const std::vector<SectionDef>& SectionDefs() {
         {"secure", "Radio Configuration", "Secure", Confidence::unknown, {0x0034, 0x0057}},
         {"trunking_config", "Trunking", "Trunking Configuration", Confidence::inferred,
          {0x0015, 0x0017, 0x001A, 0x0021, 0x0022, 0x0023, 0x0F9F, 0x0FA0}},
-        {"trunking_system", "Trunking", "Trunking System", Confidence::inferred,
-         {0x003A, 0x003B, 0x003C, 0x003D, 0x003E, 0x003F}},
+        {"trunking_system", "Trunking", "Trunking System", Confidence::verified,
+         {0x003A, 0x003B, 0x003C, 0x003D, 0x003E, 0x003F, 0x0FE6}},
         {"trunking_personality", "Trunking", "Trunking Personality", Confidence::inferred,
          {0x0052, 0x0053, 0x0FA8, 0x0FA9, 0x0FC6, 0x0FD0, 0x0FD1}},
         {"talkgroup", "Trunking", "Talkgroup", Confidence::inferred,
          {0x0FD2, 0x0FD3, 0x0FD4, 0x0FD5, 0x0FD6, 0x0FD7, 0x0FD8, 0x0FD9, 0x0FDA, 0x0FDB,
           0x0FDC, 0x0FDD, 0x0FDE, 0x0FDF, 0x0FE0, 0x0FE1, 0x0FE2, 0x0FE3, 0x0FE4, 0x0FE5,
-          0x0FE6, 0x0FE7, 0x0FE8, 0x0FE9, 0x0FEA, 0x0FEB, 0x0FEC, 0x0FED, 0x0FEE, 0x0FEF}},
+          0x0FE7, 0x0FE8, 0x0FE9, 0x0FEA, 0x0FEB, 0x0FEC, 0x0FED, 0x0FEE, 0x0FEF}},
         {"conventional_config", "Conventional", "Conventional Configuration",
          Confidence::inferred, {0x0040, 0x0050}},
         {"mpl", "Conventional", "MPL", Confidence::inferred,
@@ -185,6 +185,7 @@ void CodeplugModel::Decode() {
     aliasLists_.clear();
     namedLists_.clear();
     scanLists_.clear();
+    trunking_ = TrunkingSystemInfo{};
     sections_.clear();
     recordNodes_.clear();
 
@@ -404,6 +405,17 @@ void CodeplugModel::Decode() {
         scanLists_.push_back(std::move(m));
     }
 
+    // ---- Trunking System / General ----------------------------------------
+    const Record* sys = FindRecord(cp_, 0x0FE6, 0);
+    if (sys) {
+        auto p = RecordPayload(*sys);
+        if (p.size() >= 0x20) {
+            trunking_.present = true;
+            trunking_.wacn = (uint32_t(p[0x1A]) << 16) | (uint32_t(p[0x1B]) << 8) | p[0x1C];
+            trunking_.homeSystemId = BE16(&p[0x1D]);
+        }
+    }
+
     // ---- CPS section tree --------------------------------------------------
     for (const auto& def : SectionDefs()) {
         CodeplugSection s;
@@ -574,6 +586,31 @@ bool CodeplugModel::SetNamedListEntry(int list, int index, const std::string& na
     if (off + size_t(entrySize) > p.size()) return false;
     WriteName(p.data() + off, size_t(entrySize), name);
     if (!SetItemPayload(cp_, tag, 0, p)) return false;
+    std::string err;
+    return Reload(err);
+}
+
+bool CodeplugModel::SetWacn(uint32_t wacn) {
+    Record* r = FindRecord(cp_, 0x0FE6, 0);
+    if (!r) return false;
+    auto p = RecordPayload(*r);
+    if (p.size() < 0x20 || wacn > 0xFFFFFF) return false;
+    p[0x1A] = uint8_t(wacn >> 16);
+    p[0x1B] = uint8_t(wacn >> 8);
+    p[0x1C] = uint8_t(wacn);
+    if (!SetItemPayload(cp_, 0x0FE6, 0, p)) return false;
+    std::string err;
+    return Reload(err);
+}
+
+bool CodeplugModel::SetHomeSystemId(uint16_t id) {
+    Record* r = FindRecord(cp_, 0x0FE6, 0);
+    if (!r) return false;
+    auto p = RecordPayload(*r);
+    if (p.size() < 0x20) return false;
+    p[0x1D] = uint8_t(id >> 8);
+    p[0x1E] = uint8_t(id);
+    if (!SetItemPayload(cp_, 0x0FE6, 0, p)) return false;
     std::string err;
     return Reload(err);
 }
