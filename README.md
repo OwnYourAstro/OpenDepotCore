@@ -2,11 +2,13 @@
 
 MIT-licensed, portable clean-room core for the ASTRO 25 codeplug layer.
 
-This repository is the platform-independent half of OpenDepot. It owns the
-codeplug container, cryptography, model and FLASHcode data, reporting, doctor,
-diff, and (as the port lands) the radio transport. It builds without any GUI
-toolkit and without Windows-only APIs, so the same core can back the Qt
-desktop app, a CLI, a WebAssembly build, and Android.
+This repository is the reusable half of OpenDepot. It owns the codeplug
+container, cryptography, model and FLASHcode data, reporting, doctor, diff, and
+(as the port lands) the radio transport. It has no GUI toolkit dependency; the
+target is a core with no platform dependency either, so the same library can
+back the Qt desktop app, a CLI, a WebAssembly build, and Android. The container
+and crypto layers still use OLE2 and CryptoAPI on Windows until M2 replaces
+them.
 
 > **Status: M1 extraction.** The legacy codeplug layer (`adk`, `flashcode`,
 > `model`) now lives here, builds as `opendepot_core`, and the `opendepot-cli`
