@@ -1,4 +1,4 @@
-﻿// SPDX-FileCopyrightText: 2026 Sarah Rose
+// SPDX-FileCopyrightText: 2026 Sarah Rose
 // SPDX-License-Identifier: MIT
 
 #include "opendepot/core/adk.h"
@@ -32,6 +32,9 @@ static std::wstring ExeDir() {
 }
 
 static std::wstring HelperPath() {
+    wchar_t env[MAX_PATH] = {};
+    const DWORD n = GetEnvironmentVariableW(L"OPENDEPOT_HELPER", env, MAX_PATH);
+    if (n > 0 && n < MAX_PATH && GetFileAttributesW(env) != INVALID_FILE_ATTRIBUTES) return env;
     const std::wstring d = ExeDir();
     const wchar_t* rel[] = {L"\\radio_helper.exe", L"\\..\\..\\..\\tools\\radio_helper.exe",
                             L"\\tools\\radio_helper.exe"};
@@ -352,42 +355,54 @@ static std::string QueryBanner(const std::wstring& port) {
     return out;
 }
 
-static bool ReadRadioToCodeplug(const std::wstring& port, Codeplug& out, std::string& err,
-                                std::string* metaOut = nullptr) {
-    Codeplug tpl;
-    std::string berr;
-    std::string first = BuiltinFirstModel();
-    if (!first.empty()) BuiltinTemplate(first, tpl, berr);
-    std::vector<ReadRequest> reqs;
-    BuiltinReadRequests(reqs);
-    std::wstring reqsPath = TempPath(L"rr.reqs");
-    FILE* rf = _wfopen(reqsPath.c_str(), L"wb");
-    if (!rf) {
-        err = "reqs write failed";
+static std::string BannerField(const std::string& banner, const char* key) {
+    const std::string tag = std::string(key) + ":";
+    const size_t p = banner.find(tag);
+    if (p == std::string::npos) return {};
+    const size_t start = p + tag.size();
+    const size_t stop = banner.find_first_of("\r\n", start);
+    return banner.substr(start, stop == std::string::npos ? std::string::npos : stop - start);
+}
+
+static bool ReadRadioComplete(const std::wstring& port, const Codeplug& tpl, Codeplug& out,
+                              std::string& err) {
+    if (tpl.records.empty()) {
+        err = "template has no records";
         return false;
     }
-    for (auto& r : reqs) {
-        uint8_t b[8] = {uint8_t(r.part >> 8), uint8_t(r.part), uint8_t(r.tag >> 8),
-                        uint8_t(r.tag),      uint8_t(r.inst >> 8), uint8_t(r.inst),
-                        uint8_t(r.len >> 8), uint8_t(r.len)};
-        fwrite(b, 1, 8, rf);
+
+    // Read by partition/tag rather than tag+instance. The vendor ReadAll path
+    // returns every instance of a tag, so records that a fixed per-instance
+    // request list misses are still captured.
+    std::vector<std::pair<uint16_t, uint16_t>> tags;
+    for (const auto& r : tpl.records) {
+        const std::pair<uint16_t, uint16_t> p{r.type, static_cast<uint16_t>(r.id >> 16)};
+        if (std::find(tags.begin(), tags.end(), p) == tags.end()) tags.push_back(p);
     }
-    fclose(rf);
-    std::wstring rec = TempPath(L"rr.rec");
-    std::wstring metaPath = TempPath(L"rr.meta");
-    const bool ok = RunNativeReader(port, rec, reqsPath, err, 300000,
-                                    metaOut ? metaPath : L"");
-    DeleteFileW(reqsPath.c_str());
-    if (metaOut) {
-        std::vector<uint8_t> mb;
-        metaOut->clear();
-        if (ReadWholeFile(metaPath, mb)) metaOut->assign(mb.begin(), mb.end());
+    std::sort(tags.begin(), tags.end());
+
+    const std::wstring tagsPath = TempPath(L"rr.tags");
+    FILE* tf = _wfopen(tagsPath.c_str(), L"wb");
+    if (!tf) {
+        err = "cannot stage tag list";
+        return false;
     }
-    DeleteFileW(metaPath.c_str());
+    for (const auto& p : tags) {
+        const uint8_t b[4] = {uint8_t(p.first >> 8), uint8_t(p.first), uint8_t(p.second >> 8),
+                              uint8_t(p.second)};
+        fwrite(b, 1, 4, tf);
+    }
+    fclose(tf);
+
+    const std::wstring rec = TempPath(L"rr.rec");
+    const bool ok =
+        RunHelper(L"--read " + port + L" \"" + tagsPath + L"\" \"" + rec + L"\"", err, 300000);
+    DeleteFileW(tagsPath.c_str());
     if (!ok) {
         DeleteFileW(rec.c_str());
         return false;
     }
+
     std::vector<uint8_t> buf;
     if (!ReadWholeFile(rec, buf)) {
         DeleteFileW(rec.c_str());
@@ -395,9 +410,41 @@ static bool ReadRadioToCodeplug(const std::wstring& port, Codeplug& out, std::st
         return false;
     }
     DeleteFileW(rec.c_str());
-    if (!ApplyRecBuffer(buf, tpl, out, err)) return false;
-    std::string s, m;
-    if (ReadIdentityFromCodeplug(out, s, m)) UpdateIdentity(out, s, m);
+
+    Codeplug parsed;
+    if (!ApplyRecBuffer(buf, tpl, parsed, err)) return false;
+
+    std::string serial, modelName;
+    if (ReadIdentityFromCodeplug(parsed, serial, modelName))
+        UpdateIdentity(parsed, serial, modelName);
+
+    std::string verr;
+    if (!ValidateRadioCodeplug(parsed, verr)) {
+        err = "radio read is incomplete: " + verr;
+        return false;
+    }
+
+    out = std::move(parsed);
+    return true;
+}
+
+static bool ReadRadioToCodeplug(const std::wstring& port, Codeplug& out, std::string& err,
+                                std::string* metaOut = nullptr) {
+    const std::string banner = QueryBanner(port);
+    std::string model = BannerField(banner, "MODEL");
+    if (model.empty()) model = BuiltinFirstModel();
+
+    Codeplug tpl;
+    std::string berr;
+    if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
+        model = BuiltinFirstModel();
+        if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
+            err = "no built-in template for the connected model";
+            return false;
+        }
+    }
+    if (!ReadRadioComplete(port, tpl, out, err)) return false;
+    if (metaOut) metaOut->clear();
     return true;
 }
 
@@ -740,57 +787,40 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
     if (cmd == L"--read-radio" && argc >= 4) {
-        // Two forms:
-        //   --read-radio <port> <template.cpg> <out.cpg>
-        //   --read-radio <port> <out.cpg>            (read any radio, no template)
+        // --read-radio <port> <template.cpg> <out.cpg>
+        // --read-radio <port> <out.cpg>
         const bool useTemplate = (argc >= 5);
-        Codeplug tpl;
+        Codeplug out;
+        std::string err;
         std::wstring outPath;
         if (useTemplate) {
-            if (!LoadCodeplug(argv[3], tpl)) { printf("LOAD FAILED: %s\n", tpl.error.c_str()); return 2; }
+            Codeplug tpl;
+            if (!LoadCodeplug(argv[3], tpl)) {
+                printf("LOAD FAILED: %s\n", tpl.error.c_str());
+                return 2;
+            }
             outPath = argv[4];
+            if (!ReadRadioComplete(std::wstring(argv[2]), tpl, out, err)) {
+                printf("READ FAILED: %s\n", err.c_str());
+                return 2;
+            }
         } else {
-            // Header/type basis from a built-in schema; records come from the radio.
-            std::string berr;
-            std::string first = BuiltinFirstModel();
-            if (!first.empty()) BuiltinTemplate(first, tpl, berr);
             outPath = argv[3];
+            if (!ReadRadioToCodeplug(std::wstring(argv[2]), out, err)) {
+                printf("READ FAILED: %s\n", err.c_str());
+                return 2;
+            }
         }
-        // Native read: compile the request list from the built-in schemas.
-        std::vector<ReadRequest> reqs;
-        BuiltinReadRequests(reqs);
-        std::wstring reqsPath = TempPath(L"read.reqs");
-        FILE* rf = _wfopen(reqsPath.c_str(), L"wb");
-        if (!rf) { printf("reqs write failed\n"); return 2; }
-        for (auto& r : reqs) {
-            uint8_t b[8] = {uint8_t(r.part >> 8), uint8_t(r.part), uint8_t(r.tag >> 8),
-                            uint8_t(r.tag),      uint8_t(r.inst >> 8), uint8_t(r.inst),
-                            uint8_t(r.len >> 8), uint8_t(r.len)};
-            fwrite(b, 1, 8, rf);
-        }
-        fclose(rf);
-        std::wstring rec = TempPath(L"read.rec");
-        std::string err;
-        if (!RunNativeReader(std::wstring(argv[2]), rec, reqsPath, err)) {
-            printf("READ FAILED: %s\n", err.c_str());
-            DeleteFileW(reqsPath.c_str());
+        if (!SaveCodeplug(outPath, out, err)) {
+            printf("SAVE FAILED: %s\n", err.c_str());
             return 2;
         }
-        std::vector<uint8_t> buf;
-        if (!ReadWholeFile(rec, buf)) { printf("read output missing\n"); return 2; }
-        Codeplug out;
-        if (!ApplyRecBuffer(buf, tpl, out, err)) { printf("READ PARSE FAILED: %s\n", err.c_str()); return 2; }
-        if (!useTemplate) {
-            std::string s, m;
-            if (ReadIdentityFromCodeplug(out, s, m)) UpdateIdentity(out, s, m);
-        }
-        if (!SaveCodeplug(outPath, out, err)) { printf("SAVE FAILED: %s\n", err.c_str()); return 2; }
         size_t good = 0;
-        for (auto& r : out.records) if (r.verified) ++good;
-        DeleteFileW(reqsPath.c_str());
-        DeleteFileW(rec.c_str());
-        printf("read %zu records (%zu CRC-ok) -> %ls\n", out.records.size(), good, outPath.c_str());
-        return good == out.records.size() ? 0 : 3;
+        for (const auto& r : out.records)
+            if (r.verified) ++good;
+        printf("read %zu records (%zu CRC-ok, validated) -> %ls\n", out.records.size(), good,
+               outPath.c_str());
+        return 0;
     }
     if (cmd == L"--erase-radio" && argc >= 3) {
         bool confirmed = false;

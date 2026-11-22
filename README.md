@@ -9,12 +9,11 @@ the library itself, so the same code can back the Qt desktop app, a CLI, a
 WebAssembly build, and Android. The MS-CFB and RC4 implementations are validated
 byte-for-byte against Windows OLE and CryptoAPI output.
 
-> **Status: M2 complete.** The codeplug layer builds as a portable
-> `opendepot_core` on Windows and Linux, with no OLE32 or CryptoAPI dependency.
-> Portable MD5, CryptoAPI-compatible RC4, SHA-256, and a read/write MS-CFB
-> container replace the Windows pieces. The `opendepot-cli` harness is still
-> Windows-only because it uses Win32 process and serial I/O; that moves with the
-> radio transport port.
+> **Status: M4 in progress.** `--read-radio` now reads by partition/tag through
+> the vendor `ReadAll` path, which returns every instance of a tag, so the
+> incomplete per-instance request list is gone. Reads are rejected by the safety
+> guard if any validated tag is missing. The pure C++ PPP/RCMP transport and
+> batched writes are the next step.
 >
 > Write safety: `ValidateRadioCodeplug` now refuses a codeplug that is missing
 > any tag present in a validated complete set for the tested model. This follows
