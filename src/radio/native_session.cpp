@@ -9,7 +9,10 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cstdarg>
+#include <cstdio>
 #include <cstring>
+#include <set>
 #include <thread>
 #include <vector>
 
@@ -350,6 +353,32 @@ struct RadioSession::Impl {
     bool ipcp_radio_up = false;
     bool ipcp_host_up = false;
 
+    FILE* log = nullptr;
+    ~Impl() {
+        if (log) fclose(log);
+    }
+
+    void Log(const char* fmt, ...) {
+        if (!log) return;
+        va_list ap;
+        va_start(ap, fmt);
+        vfprintf(log, fmt, ap);
+        va_end(ap);
+        fputc('\n', log);
+        fflush(log);
+    }
+
+    static std::string HexShort(const std::vector<uint8_t>& v, size_t max = 40) {
+        static const char* kHex = "0123456789abcdef";
+        std::string s;
+        for (size_t i = 0; i < v.size() && i < max; ++i) {
+            s.push_back(kHex[v[i] >> 4]);
+            s.push_back(kHex[v[i] & 0x0F]);
+        }
+        if (v.size() > max) s += "...";
+        return s;
+    }
+
     std::vector<std::vector<uint8_t>> ReadFrames(int ms) {
         std::vector<std::vector<uint8_t>> out;
         const int64_t end = NowMs() + ms;
@@ -495,12 +524,19 @@ struct RadioSession::Impl {
     }
 
     bool Init(std::string& err) {
+        wchar_t tmp[MAX_PATH] = {};
+        GetTempPathW(MAX_PATH, tmp);
+        const std::wstring logPath = std::wstring(tmp) + L"opendepot-native.log";
+        log = _wfopen(logPath.c_str(), L"w");
+        Log("native init port=%s", port.c_str());
+
         for (int baud : {9600, 115200}) {
             SerialPort probe;
             if (!probe.Open(port, baud, err)) continue;
             probe.WriteStr("AT&V\r");
             SleepMs(1500);
             const std::string r = probe.ReadString();
+            Log("AT&V @%d: %s", baud, r.substr(0, 48).c_str());
             if (r.find("CARRIER") != std::string::npos || r.find("RADIO") != std::string::npos ||
                 r.find("OK") != std::string::npos || r.find("ERROR") != std::string::npos) {
                 probe.WriteStr("AT#DATLCL=1\r");
@@ -524,15 +560,24 @@ struct RadioSession::Impl {
         SleepMs(2000);
         serial.ReadString();
 
+        Log("LCP tx");
         WriteFrame(0xC021, Hex("010100140206000000000506000148b807020802"), false, true);
-        for (const auto& f : ReadFrames(2000)) HandleLink(f);
+        for (const auto& f : ReadFrames(2000)) {
+            Log("rx link %s", HexShort(f).c_str());
+            HandleLink(f);
+        }
 
+        Log("IPCP tx");
         WriteFrame(0x8021, Hex("0101000a0306c0a88002"), false, true);
         int64_t end = NowMs() + 6000;
         while (NowMs() < end) {
-            for (const auto& f : ReadFrames(500)) HandleLink(f);
+            for (const auto& f : ReadFrames(500)) {
+                Log("rx link %s", HexShort(f).c_str());
+                HandleLink(f);
+            }
             if (ipcp_host_up && ipcp_radio_up) break;
         }
+        Log("IPCP state radio=%d host=%d", ipcp_radio_up ? 1 : 0, ipcp_host_up ? 1 : 0);
         if (!(ipcp_host_up && ipcp_radio_up)) {
             err = "PPP IPCP did not come up";
             EmergencyEnd();
@@ -541,6 +586,7 @@ struct RadioSession::Impl {
 
         my_seq = 0x12345678;
         their_seq = 0;
+        Log("TCP SYN");
         SendIp(TcpSegment(my_seq, 0, kTcpSyn, {}));
         uint32_t radio_seq = 0;
         bool synack = false;
@@ -555,6 +601,7 @@ struct RadioSession::Impl {
                 if (ParseTcp(f, v) && (v.flags & kTcpSyn) && (v.flags & kTcpAck)) {
                     radio_seq = v.seq;
                     synack = true;
+                    Log("SYN-ACK seq=%08x", radio_seq);
                     break;
                 }
             }
@@ -572,11 +619,8 @@ struct RadioSession::Impl {
 
     // Called on every failure path and on Close. Ends program mode if possible,
     // then returns the radio to AT mode at whichever baud it is using.
-    void EmergencyEnd() {
-        if (serial.h != INVALID_HANDLE_VALUE) {
-            Req(Hex("010601"), 1000);
-            serial.Close();
-        }
+    void ResetToAt() {
+        serial.Close();
         for (int baud : {115200, 9600}) {
             SerialPort s;
             std::string e;
@@ -593,11 +637,30 @@ struct RadioSession::Impl {
         }
     }
 
+    void EmergencyEnd() {
+        if (serial.h != INVALID_HANDLE_VALUE) {
+            Req(Hex("010601"), 1000);
+            serial.Close();
+        }
+        ResetToAt();
+    }
+
+    // Read-only sessions must NOT send the program-mode config or the
+    // SendReOrg command; doing so can rebuild an inconsistent ISH directory.
+    void ReadPreamble() {
+        Req(Hex("010600"), 2000);
+        Req(Hex("000f00"), 2000);
+        Req(Hex("001100"), 2000);
+        Req(Hex("0012"), 2000);
+        Req(Hex("0300"), 3000);
+    }
+
     bool ProgramAndAuth(std::string& err) {
         Req(Hex("010600"), 2000);
         Req(Hex("01048512bf00000000"), 2000);
         Req(Hex("000f00"), 2000);
         auto r = Req(Hex("0300"), 3000);
+        Log("auth challenge size=%zu", r.size());
         if (!(r.size() >= 35 && r[0] == 0x83 && r[1] == 0x00)) {
             err = "auth challenge failed";
             EmergencyEnd();
@@ -608,6 +671,7 @@ struct RadioSession::Impl {
         const auto a2 = AuthResponse(ch);
         body.insert(body.end(), a2.begin(), a2.end());
         r = Req(body, 3000);
+        Log("auth reply %s", HexShort(r).c_str());
         if (!(r.size() >= 2 && r[0] == 0x83 && r[1] == 0x01)) {
             err = "auth rejected";
             EmergencyEnd();
@@ -650,21 +714,39 @@ bool RadioSession::Info(RadioInfo& out, std::string& err) {
 
 bool RadioSession::ReadRequests(const std::vector<RadioReadRequest>& reqs,
                                 std::vector<Record>& out, std::string& err) {
-    if (!impl_->ProgramAndAuth(err)) return false;
+    impl_->ReadPreamble();
+    std::set<uint32_t> seen;
     for (const auto& q : reqs) {
-        std::vector<uint8_t> body{0x01, 0x00, uint8_t(q.part)};
-        PutBe16(body, q.tag);
-        PutBe16(body, q.inst);
-        PutBe16(body, q.len);
-        PutBe16(body, 0);
-        const auto r = impl_->Req(body, 3000);
+        auto attempt = [&](uint16_t part) {
+            std::vector<uint8_t> body{0x01, 0x00, uint8_t(part)};
+            PutBe16(body, q.tag);
+            PutBe16(body, q.inst);
+            PutBe16(body, q.len);
+            PutBe16(body, 0);
+            return impl_->Req(body, 3000);
+        };
+        uint16_t used = q.part;
+        auto r = attempt(used);
+        if (!(r.size() >= 3 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00)) {
+            const uint16_t alt = static_cast<uint16_t>(q.part ^ 0x0001);
+            auto r2 = attempt(alt);
+            if (r2.size() >= 3 && r2[0] == 0x81 && r2[1] == 0x00 && r2[2] == 0x00) {
+                r = std::move(r2);
+                used = alt;
+            }
+        }
+        impl_->Log("read %02x/%04x/%04x len=%u -> %s", used, q.tag, q.inst, q.len,
+                   Impl::HexShort(r).c_str());
         if (!(r.size() >= 14 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00)) continue;
         const uint16_t len = Be16(r.data() + 12);
         if (len == 0 || r.size() < size_t(14) + len) continue;
 
+        const uint32_t id = (uint32_t(q.tag) << 16) | q.inst;
+        if (!seen.insert(id).second) continue;
+
         Record rec;
-        rec.id = (uint32_t(q.tag) << 16) | q.inst;
-        rec.type = q.part;
+        rec.id = id;
+        rec.type = used;
         PutBe32(rec.raw, rec.id);
         PutBe16(rec.raw, len);
         rec.raw.insert(rec.raw.end(), r.begin() + 14, r.begin() + 14 + len);
@@ -673,7 +755,7 @@ bool RadioSession::ReadRequests(const std::vector<RadioReadRequest>& reqs,
         out.push_back(std::move(rec));
     }
     impl_->Req(Hex("010601"), 3000);
-    impl_->serial.Close();
+    impl_->ResetToAt();
     return true;
 }
 
@@ -714,7 +796,7 @@ bool RadioSession::WriteRecords(const std::vector<Record>& recs, std::string& er
     }
     impl_->Req(Hex("01078000"), 5000);
     impl_->Req(Hex("010601"), 5000);
-    impl_->serial.Close();
+    impl_->ResetToAt();
     if (failed) {
         err = std::to_string(failed) + " record(s) were not accepted";
         return false;

@@ -848,21 +848,33 @@ int wmain(int argc, wchar_t** argv) {
         return 0;
     }
     if (cmd == L"--read-radio-native" && argc >= 4) {
+        const bool haveTemplate = (argc >= 5);
+        std::wstring outPath;
+        Codeplug tpl;
+        if (haveTemplate) {
+            if (!LoadCodeplug(argv[3], tpl)) {
+                printf("LOAD FAILED: %s\n", tpl.error.c_str());
+                return 2;
+            }
+            outPath = argv[4];
+        }
         std::string err;
         auto session = opendepot::RadioSession::Open(ToUtf8(argv[2]), err);
         if (!session) {
             printf("OPEN FAILED: %s\n", err.c_str());
             return 2;
         }
-        opendepot::RadioInfo info;
-        session->Info(info, err);
-        std::string model = info.model.empty() ? BuiltinFirstModel() : info.model;
-        Codeplug tpl;
-        std::string berr;
-        if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
-            printf("NO TEMPLATE: %s\n", berr.c_str());
-            session->Close();
-            return 2;
+        if (!haveTemplate) {
+            opendepot::RadioInfo info;
+            session->Info(info, err);
+            const std::string model = info.model.empty() ? BuiltinFirstModel() : info.model;
+            std::string berr;
+            if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
+                printf("NO TEMPLATE: %s\n", berr.c_str());
+                session->Close();
+                return 2;
+            }
+            outPath = argv[3];
         }
         std::vector<opendepot::RadioReadRequest> reqs;
         reqs.reserve(tpl.records.size());
@@ -886,14 +898,15 @@ int wmain(int argc, wchar_t** argv) {
             printf("NATIVE READ INCOMPLETE: %s\n", verr.c_str());
             return 3;
         }
-        if (!SaveCodeplug(argv[3], out, err)) {
+        if (!SaveCodeplug(outPath, out, err)) {
             printf("SAVE FAILED: %s\n", err.c_str());
             return 2;
         }
         size_t good = 0;
         for (const auto& r : out.records)
             if (r.verified) ++good;
-        printf("native read %zu records (%zu CRC-ok) -> %ls\n", out.records.size(), good, argv[3]);
+        printf("native read %zu records (%zu CRC-ok) -> %ls\n", out.records.size(), good,
+               outPath.c_str());
         return 0;
     }
     if (cmd == L"--write-radio-native" && argc >= 4) {

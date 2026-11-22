@@ -15,13 +15,18 @@ byte-for-byte against Windows OLE and CryptoAPI output.
 > guard if any validated tag is missing. The pure C++ PPP/RCMP transport and
 > batched writes are the next step.
 >
-> **Experimental, not hardware-ready:** `--read-radio-native` and
-> `--write-radio-native` use the new in-tree serial/PPP/RCMP transport. It
-> compiles and reaches PPP/auth, but reads returned no records on the first
-> test and IPCP failed on the next; the failed session is now force-reset out of
-> program mode. The supported paths remain `--read-radio` / `--write-radio`
-> (vendor `ReadAll` + the fixed Python writer). Do not use the native commands
-> on a radio until they are validated.
+> **M4d validated on hardware:** the in-tree serial/PPP/RCMP transport now reads
+> and writes without the vendor helper or Python. On the XTS 2500: native read
+> 137 records / 137 CRC-ok in ~16-20 s, native write 137 records in ~17 s,
+> native read-back identical, and the radio returns to AT mode after every
+> session (even after a failure).
+>
+> The native read uses a complete request set: pass a known-good codeplug as the
+> template (`--read-radio-native <port> <template.cpg> <out.cpg>`). The built-in
+> schema is still missing tags `0x0016`, `0x0FFD`, and `0x0FFF` for this model, so
+> the template-free native read is refused by the guard. The default
+> `--read-radio` / `--write-radio` remain the helper/Python paths until the
+> native schema is complete.
 >
 > Write safety: `ValidateRadioCodeplug` now refuses a codeplug that is missing
 > any tag present in a validated complete set for the tested model. This follows
