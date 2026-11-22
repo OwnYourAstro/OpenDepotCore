@@ -34,6 +34,7 @@ add_library(opendepot_core
     src/container/cfb.cpp
     src/model/read_requests.cpp
     src/model/codeplug_model.cpp
+    src/model/field_catalog.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 

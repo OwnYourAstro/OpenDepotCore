@@ -7,6 +7,7 @@
 #include <string>
 
 #include "opendepot/core/adk.h"
+#include "opendepot/core/field_catalog.h"
 #include "opendepot/core/model.h"
 
 namespace {
@@ -41,6 +42,22 @@ int main(int argc, char** argv) {
     if (model.AliasLists().size() < 2) return Fail("alias lists not decoded");
     if (model.RecordNodes().size() != cp.records.size())
         return Fail("record nodes do not cover every record");
+
+    size_t fieldCount = 0;
+    const auto* fields = opendepot::FieldCatalog(fieldCount);
+    if (!fields || fieldCount != 2949) return Fail("field catalog size");
+    const auto* oor = opendepot::FindField(9271);
+    if (!oor || std::string(oor->name ? oor->name : "") != "Out of Range Indicator")
+        return Fail("field catalog name lookup");
+    size_t tableCount = 0;
+    const auto* tables = opendepot::TableCatalog(tableCount);
+    if (!tables || tableCount != 18) return Fail("table catalog size");
+    const auto* zone = opendepot::FindTable("zone_channel_assignment");
+    if (!zone || zone->columnCount != 47 || zone->boundColumnCount != 38)
+        return Fail("zone table binding");
+    const uint8_t sample[] = {0xA6};
+    if (opendepot::ReadFieldBits(sample, sizeof(sample), 0, 2, 3) != 1)
+        return Fail("field bit reader");
     bool sawStatus = false, sawScan = false, sawMessage = false;
     for (const auto& n : model.RecordNodes()) {
         if (n.section.empty()) return Fail("record node has no section");
