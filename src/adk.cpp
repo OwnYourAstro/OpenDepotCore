@@ -1036,9 +1036,52 @@ bool CreateCodeplug(const Codeplug& templ, const CreateOptions& opt, Codeplug& o
         err = "Serial/model do not fit the template fields (use a same-model template)";
         return false;
     }
-    if (!opt.flashcode.empty()) {
+    std::string flashcode = opt.flashcode;
+    if (!opt.addons.empty() || !opt.packages.empty()) {
+        const FlashcodePlatform* platform = FindFlashcodePlatform(PlatformForRadio(opt.radio));
+        if (platform) {
+            std::string hex = FlashcodeToNibbles(flashcode);
+            if (hex.size() != 12) hex.assign(12, '0');
+            const auto addonList = AddonsForModel(opt.model);
+            auto setOption = [&](const std::string& code, bool on) {
+                for (const auto& option : platform->options) {
+                    if (option.code != code || option.nibble < 0 || option.nibble > 11 ||
+                        option.bit < 0 || option.bit > 3)
+                        continue;
+                    int value = HexVal(hex[option.nibble]);
+                    if (on)
+                        value |= 1 << option.bit;
+                    else
+                        value &= ~(1 << option.bit);
+                    hex[option.nibble] = "0123456789ABCDEF"[value & 0x0F];
+                }
+            };
+            for (const auto& option : platform->options) {
+                if (std::find(addonList.begin(), addonList.end(), option.code) ==
+                    addonList.end())
+                    continue;
+                const bool selected =
+                    std::find(opt.addons.begin(), opt.addons.end(), option.code) !=
+                    opt.addons.end();
+                setOption(option.code, selected);
+            }
+            if (!opt.packages.empty()) {
+                for (const auto& package : platform->packages)
+                    for (const auto& code : package.codes) setOption(code, false);
+                for (const auto& selected : opt.packages) {
+                    for (const auto& package : platform->packages) {
+                        if (package.key != selected) continue;
+                        for (const auto& code : package.codes) setOption(code, true);
+                    }
+                }
+            }
+            const std::string canonical = CanonicalFlashcode(hex);
+            if (!canonical.empty()) flashcode = canonical;
+        }
+    }
+    if (!flashcode.empty()) {
         std::string canonical;
-        if (!SetFlashcodeMap(out, opt.flashcode, canonical, err)) return false;
+        if (!SetFlashcodeMap(out, flashcode, canonical, err)) return false;
     }
     return true;
 }
