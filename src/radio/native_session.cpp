@@ -1,0 +1,727 @@
+// SPDX-FileCopyrightText: 2026 Sarah Rose
+// SPDX-License-Identifier: MIT
+
+#include "opendepot/core/radio.h"
+
+#ifdef _WIN32
+
+#include <windows.h>
+
+#include <algorithm>
+#include <chrono>
+#include <cstring>
+#include <thread>
+#include <vector>
+
+namespace opendepot {
+namespace {
+
+constexpr int kHostPort = 8001;
+constexpr int kRadioPort = 8002;
+constexpr uint8_t kIpHost[4] = {192, 168, 128, 2};
+constexpr uint8_t kIpRadio[4] = {192, 168, 128, 1};
+constexpr uint16_t kTcpFin = 1, kTcpSyn = 2, kTcpRst = 4, kTcpPsh = 8, kTcpAck = 0x10;
+
+int64_t NowMs() {
+    return std::chrono::duration_cast<std::chrono::milliseconds>(
+               std::chrono::steady_clock::now().time_since_epoch())
+        .count();
+}
+
+void SleepMs(int ms) { std::this_thread::sleep_for(std::chrono::milliseconds(ms)); }
+
+uint16_t Be16(const uint8_t* p) {
+    return static_cast<uint16_t>((p[0] << 8) | p[1]);
+}
+uint32_t Be32(const uint8_t* p) {
+    return (uint32_t(p[0]) << 24) | (uint32_t(p[1]) << 16) | (uint32_t(p[2]) << 8) | p[3];
+}
+void PutBe16(std::vector<uint8_t>& v, uint16_t x) {
+    v.push_back(uint8_t(x >> 8));
+    v.push_back(uint8_t(x));
+}
+void PutBe32(std::vector<uint8_t>& v, uint32_t x) {
+    v.push_back(uint8_t(x >> 24));
+    v.push_back(uint8_t(x >> 16));
+    v.push_back(uint8_t(x >> 8));
+    v.push_back(uint8_t(x));
+}
+
+std::vector<uint8_t> Hex(const char* s) {
+    std::vector<uint8_t> out;
+    int hi = -1;
+    for (const char* p = s; *p; ++p) {
+        int v = -1;
+        if (*p >= '0' && *p <= '9') v = *p - '0';
+        else if (*p >= 'a' && *p <= 'f') v = *p - 'a' + 10;
+        else if (*p >= 'A' && *p <= 'F') v = *p - 'A' + 10;
+        else continue;
+        if (hi < 0) hi = v;
+        else {
+            out.push_back(uint8_t((hi << 4) | v));
+            hi = -1;
+        }
+    }
+    return out;
+}
+
+uint16_t Fcs(const uint8_t* data, size_t n) {
+    uint16_t f = 0xFFFF;
+    for (size_t i = 0; i < n; ++i) {
+        f ^= data[i];
+        for (int b = 0; b < 8; ++b) f = (f & 1) ? uint16_t((f >> 1) ^ 0x8408) : uint16_t(f >> 1);
+    }
+    return uint16_t(f ^ 0xFFFF);
+}
+
+std::vector<uint8_t> Unescape(const std::vector<uint8_t>& in) {
+    std::vector<uint8_t> out;
+    out.reserve(in.size());
+    for (size_t i = 0; i < in.size(); ++i) {
+        if (in[i] == 0x7D && i + 1 < in.size()) {
+            out.push_back(uint8_t(in[++i] ^ 0x20));
+        } else {
+            out.push_back(in[i]);
+        }
+    }
+    return out;
+}
+
+std::vector<uint8_t> Frame(uint16_t proto, const std::vector<uint8_t>& data, bool pfc, bool addr) {
+    std::vector<uint8_t> body;
+    if (addr) {
+        body.push_back(0xFF);
+        body.push_back(0x03);
+    }
+    if (pfc) {
+        body.push_back(uint8_t(proto));
+    } else {
+        PutBe16(body, proto);
+    }
+    body.insert(body.end(), data.begin(), data.end());
+    const uint16_t f = Fcs(body.data(), body.size());
+    body.push_back(uint8_t(f));
+    body.push_back(uint8_t(f >> 8));
+
+    std::vector<uint8_t> out;
+    out.push_back(0x7E);
+    for (uint8_t b : body) {
+        if (b == 0x7E || b == 0x7D || b < 0x20) {
+            out.push_back(0x7D);
+            out.push_back(uint8_t(b ^ 0x20));
+        } else {
+            out.push_back(b);
+        }
+    }
+    out.push_back(0x7E);
+    return out;
+}
+
+uint16_t Checksum(const uint8_t* data, size_t n) {
+    uint32_t sum = 0;
+    for (size_t i = 0; i + 1 < n; i += 2) sum += (uint32_t(data[i]) << 8) | data[i + 1];
+    if (n & 1) sum += uint32_t(data[n - 1]) << 8;
+    while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
+    return uint16_t(~sum & 0xFFFF);
+}
+
+struct SerialPort {
+    HANDLE h = INVALID_HANDLE_VALUE;
+
+    bool Open(const std::string& port, uint32_t baud, std::string& err) {
+        const std::wstring w(port.begin(), port.end());
+        const std::wstring dev = L"\\\\.\\" + w;
+        h = CreateFileW(dev.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0,
+                        nullptr);
+        if (h == INVALID_HANDLE_VALUE) {
+            err = "cannot open " + port;
+            return false;
+        }
+        DCB dcb{};
+        dcb.DCBlength = sizeof(dcb);
+        if (!GetCommState(h, &dcb)) {
+            err = "GetCommState failed";
+            Close();
+            return false;
+        }
+        dcb.BaudRate = baud;
+        dcb.ByteSize = 8;
+        dcb.Parity = NOPARITY;
+        dcb.StopBits = ONESTOPBIT;
+        dcb.fBinary = TRUE;
+        dcb.fParity = FALSE;
+        dcb.fOutxCtsFlow = TRUE;
+        dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
+        dcb.fDtrControl = DTR_CONTROL_ENABLE;
+        dcb.fOutX = FALSE;
+        dcb.fInX = FALSE;
+        dcb.fDsrSensitivity = FALSE;
+        SetCommState(h, &dcb);
+        COMMTIMEOUTS to{};
+        to.ReadIntervalTimeout = 10;
+        to.ReadTotalTimeoutConstant = 10;
+        to.ReadTotalTimeoutMultiplier = 0;
+        to.WriteTotalTimeoutConstant = 1000;
+        to.WriteTotalTimeoutMultiplier = 0;
+        SetCommTimeouts(h, &to);
+        PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
+        return true;
+    }
+
+    void Close() {
+        if (h != INVALID_HANDLE_VALUE) {
+            CloseHandle(h);
+            h = INVALID_HANDLE_VALUE;
+        }
+    }
+
+    bool Write(const uint8_t* data, size_t n) {
+        DWORD written = 0;
+        return WriteFile(h, data, DWORD(n), &written, nullptr) && written == n;
+    }
+    bool WriteStr(const char* s) { return Write(reinterpret_cast<const uint8_t*>(s), strlen(s)); }
+
+    size_t Available() {
+        COMSTAT st{};
+        DWORD errors = 0;
+        if (!ClearCommError(h, &errors, &st)) return 0;
+        return st.cbInQue;
+    }
+
+    size_t Read(uint8_t* buf, size_t n) {
+        DWORD got = 0;
+        if (!ReadFile(h, buf, DWORD(n), &got, nullptr)) return 0;
+        return got;
+    }
+
+    std::string ReadString() {
+        std::string out;
+        while (size_t n = Available()) {
+            std::vector<uint8_t> tmp(n);
+            const size_t got = Read(tmp.data(), n);
+            out.append(reinterpret_cast<char*>(tmp.data()), got);
+        }
+        return out;
+    }
+};
+
+struct TcpView {
+    bool ok = false;
+    uint16_t sport = 0, dport = 0;
+    uint32_t seq = 0, ack = 0;
+    uint16_t flags = 0;
+    std::vector<uint8_t> data;
+};
+
+bool ParseTcp(const std::vector<uint8_t>& f, TcpView& out) {
+    const uint8_t* ip = nullptr;
+    size_t iplen = 0;
+    if (!f.empty() && f[0] == 0x21) {
+        ip = f.data() + 1;
+        iplen = f.size() - 1;
+    } else if (!f.empty() && f[0] == 0x00) {
+        ip = f.data();
+        iplen = f.size();
+    } else {
+        return false;
+    }
+    if (iplen < 20 || (ip[0] >> 4) != 4) return false;
+    const size_t ihl = (ip[0] & 0x0F) * 4;
+    size_t total = Be16(ip + 2);
+    if (total > iplen) total = iplen;
+    if (total < ihl + 20 || ip[9] != 6) return false;
+    const uint8_t* th = ip + ihl;
+    const size_t thlen = total - ihl;
+    const uint16_t off = Be16(th + 12);
+    const size_t hlen = (off >> 12) * 4;
+    if (hlen < 20 || hlen > thlen) return false;
+    out.ok = true;
+    out.sport = Be16(th);
+    out.dport = Be16(th + 2);
+    out.seq = Be32(th + 4);
+    out.ack = Be32(th + 8);
+    out.flags = off & 0x1FF;
+    out.data.assign(th + hlen, th + thlen);
+    return true;
+}
+
+std::vector<uint8_t> IpPacket(uint8_t proto, const std::vector<uint8_t>& payload,
+                              uint16_t ident) {
+    std::vector<uint8_t> h(20, 0);
+    const size_t total = 20 + payload.size();
+    h[0] = 0x45;
+    h[2] = uint8_t(total >> 8);
+    h[3] = uint8_t(total);
+    h[4] = uint8_t(ident >> 8);
+    h[5] = uint8_t(ident);
+    h[6] = 0x40;
+    h[8] = 64;
+    h[9] = proto;
+    std::memcpy(h.data() + 12, kIpHost, 4);
+    std::memcpy(h.data() + 16, kIpRadio, 4);
+    const uint16_t chk = Checksum(h.data(), h.size());
+    h[10] = uint8_t(chk >> 8);
+    h[11] = uint8_t(chk);
+    h.insert(h.end(), payload.begin(), payload.end());
+    return h;
+}
+
+std::vector<uint8_t> TcpSegment(uint32_t seq, uint32_t ack, uint16_t flags,
+                                const std::vector<uint8_t>& payload) {
+    std::vector<uint8_t> h(20, 0);
+    h[0] = uint8_t(kHostPort >> 8);
+    h[1] = uint8_t(kHostPort);
+    h[2] = uint8_t(kRadioPort >> 8);
+    h[3] = uint8_t(kRadioPort);
+    h[4] = uint8_t(seq >> 24);
+    h[5] = uint8_t(seq >> 16);
+    h[6] = uint8_t(seq >> 8);
+    h[7] = uint8_t(seq);
+    h[8] = uint8_t(ack >> 24);
+    h[9] = uint8_t(ack >> 16);
+    h[10] = uint8_t(ack >> 8);
+    h[11] = uint8_t(ack);
+    h[12] = uint8_t((5 << 4) | (flags >> 8));
+    h[13] = uint8_t(flags);
+    h[14] = 0x16;
+    h[15] = 0xD0;
+
+    std::vector<uint8_t> pseudo;
+    pseudo.insert(pseudo.end(), kIpHost, kIpHost + 4);
+    pseudo.insert(pseudo.end(), kIpRadio, kIpRadio + 4);
+    pseudo.push_back(0);
+    pseudo.push_back(6);
+    PutBe16(pseudo, uint16_t(h.size() + payload.size()));
+    pseudo.insert(pseudo.end(), h.begin(), h.end());
+    pseudo.insert(pseudo.end(), payload.begin(), payload.end());
+    const uint16_t chk = Checksum(pseudo.data(), pseudo.size());
+    h[16] = uint8_t(chk >> 8);
+    h[17] = uint8_t(chk);
+    h.insert(h.end(), payload.begin(), payload.end());
+    return h;
+}
+
+std::vector<uint8_t> AuthResponse(const std::vector<uint8_t>& challenge) {
+    if (challenge.size() < 32) return {};
+    uint32_t state = 0x51E88D21;
+    std::vector<uint8_t> out(32);
+    for (int k = 0; k < 32; ++k) {
+        uint8_t b = challenge[k];
+        const uint8_t rev = challenge[31 - k];
+        for (int bit = 7; bit >= 1; --bit) {
+            const uint32_t fb = ((rev >> bit) & 1) ^ ((state >> 9) & 1);
+            state = (state * 2 + fb) & 0xFFFFFFFF;
+            b ^= uint8_t((fb << bit) & 0xFF);
+        }
+        out[k] = b;
+    }
+    return out;
+}
+
+std::string AsciiField(const std::vector<uint8_t>& r, size_t offset) {
+    std::string out;
+    for (size_t i = offset; i < r.size(); ++i) {
+        if (r[i] == 0) break;
+        if (r[i] >= 32 && r[i] < 127) out.push_back(char(r[i]));
+    }
+    return out;
+}
+
+std::string BannerField(const std::string& banner, const char* key) {
+    const std::string tag = std::string(key) + ":";
+    const size_t p = banner.find(tag);
+    if (p == std::string::npos) return {};
+    const size_t start = p + tag.size();
+    const size_t end = banner.find_first_of("\r\n", start);
+    return banner.substr(start, end == std::string::npos ? std::string::npos : end - start);
+}
+
+}  // namespace
+
+struct RadioSession::Impl {
+    std::string port;
+    std::string banner;
+    SerialPort serial;
+    std::vector<uint8_t> frame_buf;
+    std::vector<uint8_t> rxbuf;
+    uint32_t my_seq = 0;
+    uint32_t their_seq = 0;
+    uint16_t ip_id = 1;
+    bool ipcp_radio_up = false;
+    bool ipcp_host_up = false;
+
+    std::vector<std::vector<uint8_t>> ReadFrames(int ms) {
+        std::vector<std::vector<uint8_t>> out;
+        const int64_t end = NowMs() + ms;
+        while (NowMs() < end) {
+            const size_t n = serial.Available();
+            if (n) {
+                std::vector<uint8_t> tmp(n);
+                const size_t got = serial.Read(tmp.data(), n);
+                frame_buf.insert(frame_buf.end(), tmp.begin(), tmp.begin() + got);
+                size_t i = 0;
+                while (true) {
+                    auto p = std::find(frame_buf.begin() + i, frame_buf.end(), 0x7E);
+                    if (p == frame_buf.end()) break;
+                    const size_t a = size_t(p - frame_buf.begin());
+                    auto q = std::find(p + 1, frame_buf.end(), 0x7E);
+                    if (q == frame_buf.end()) break;
+                    const size_t b = size_t(q - frame_buf.begin());
+                    std::vector<uint8_t> raw(frame_buf.begin() + a + 1, frame_buf.begin() + b);
+                    frame_buf.erase(frame_buf.begin(), frame_buf.begin() + b + 1);
+                    i = 0;
+                    out.push_back(Unescape(raw));
+                }
+                if (!out.empty()) return out;
+            } else {
+                SleepMs(5);
+            }
+        }
+        return out;
+    }
+
+    void WriteFrame(uint16_t proto, const std::vector<uint8_t>& data, bool pfc, bool addr) {
+        const auto f = Frame(proto, data, pfc, addr);
+        serial.Write(f.data(), f.size());
+    }
+
+    void SendIp(const std::vector<uint8_t>& payload, uint8_t proto = 6) {
+        const auto pkt = IpPacket(proto, payload, ip_id++);
+        const auto f = Frame(0x21, pkt, true, false);
+        serial.Write(f.data(), f.size());
+    }
+
+    void Ack() { SendIp(TcpSegment(my_seq, their_seq, kTcpAck, {})); }
+
+    void HandleLink(const std::vector<uint8_t>& f) {
+        if (f.size() < 8 || f[0] != 0xFF || f[1] != 0x03) return;
+        const uint16_t proto = Be16(f.data() + 2);
+        const std::vector<uint8_t> data(f.begin() + 6, f.end() - 2);
+        if (proto == 0xC021) {
+            const uint8_t code = f[4];
+            if (code == 1) {
+                std::vector<uint8_t> body{2, f[5]};
+                body.insert(body.end(), data.begin(), data.end());
+                WriteFrame(0xC021, body, false, true);
+            } else if (code == 9) {
+                std::vector<uint8_t> body{0x0A, f[5]};
+                body.insert(body.end(), data.begin(), data.end());
+                WriteFrame(0xC021, body, false, true);
+            }
+        } else if (proto == 0x8021) {
+            const uint8_t code = f[4];
+            if (code == 1) {
+                std::vector<uint8_t> vj;
+                bool has_vj = false;
+                for (size_t i = 0; i + 2 <= data.size();) {
+                    const uint8_t t = data[i];
+                    const uint8_t l = data[i + 1];
+                    if (l < 2 || i + l > data.size()) break;
+                    if (t == 2) {
+                        has_vj = true;
+                        vj.insert(vj.end(), data.begin() + i, data.begin() + i + l);
+                    }
+                    i += l;
+                }
+                if (has_vj) {
+                    std::vector<uint8_t> body{4, f[5]};
+                    body.insert(body.end(), vj.begin(), vj.end());
+                    WriteFrame(0x8021, body, false, true);
+                } else {
+                    std::vector<uint8_t> body{2, f[5]};
+                    body.insert(body.end(), data.begin(), data.end());
+                    WriteFrame(0x8021, body, false, true);
+                    ipcp_radio_up = true;
+                }
+            } else if (code == 2) {
+                ipcp_host_up = true;
+            }
+        }
+    }
+
+    void Pump(int ms) {
+        const int64_t end = NowMs() + ms;
+        while (NowMs() < end) {
+            for (const auto& f : ReadFrames(10)) {
+                if (f.size() >= 2 && f[0] == 0xFF) {
+                    HandleLink(f);
+                    continue;
+                }
+                TcpView v;
+                if (!ParseTcp(f, v) || v.data.empty()) continue;
+                const uint32_t diff = v.seq - their_seq;
+                if (diff == 0) {
+                    rxbuf.insert(rxbuf.end(), v.data.begin(), v.data.end());
+                    their_seq += uint32_t(v.data.size());
+                } else if (diff & 0x80000000u) {
+                    const uint32_t skipped = their_seq - v.seq;
+                    if (skipped < v.data.size()) {
+                        rxbuf.insert(rxbuf.end(), v.data.begin() + skipped, v.data.end());
+                        their_seq += uint32_t(v.data.size() - skipped);
+                    }
+                }
+                Ack();
+            }
+        }
+    }
+
+    void SendMsg(const std::vector<uint8_t>& body) {
+        std::vector<uint8_t> wire;
+        PutBe16(wire, static_cast<uint16_t>(body.size()));
+        wire.insert(wire.end(), body.begin(), body.end());
+        SendIp(TcpSegment(my_seq, their_seq, kTcpAck | kTcpPsh, wire));
+        my_seq += uint32_t(wire.size());
+    }
+
+    std::vector<uint8_t> RecvMsg(int ms) {
+        const int64_t end = NowMs() + ms;
+        while (true) {
+            if (rxbuf.size() >= 2) {
+                const uint16_t len = Be16(rxbuf.data());
+                if (len <= 4096 && rxbuf.size() >= size_t(2) + len) {
+                    std::vector<uint8_t> out(rxbuf.begin() + 2, rxbuf.begin() + 2 + len);
+                    rxbuf.erase(rxbuf.begin(), rxbuf.begin() + 2 + len);
+                    return out;
+                }
+            }
+            if (NowMs() > end) return {};
+            Pump(10);
+        }
+    }
+
+    std::vector<uint8_t> Req(const std::vector<uint8_t>& body, int ms) {
+        SendMsg(body);
+        return RecvMsg(ms);
+    }
+
+    bool Init(std::string& err) {
+        for (int baud : {9600, 115200}) {
+            SerialPort probe;
+            if (!probe.Open(port, baud, err)) continue;
+            probe.WriteStr("AT&V\r");
+            SleepMs(1500);
+            const std::string r = probe.ReadString();
+            if (r.find("CARRIER") != std::string::npos || r.find("RADIO") != std::string::npos ||
+                r.find("OK") != std::string::npos || r.find("ERROR") != std::string::npos) {
+                probe.WriteStr("AT#DATLCL=1\r");
+                SleepMs(500);
+                probe.ReadString();
+                if (baud == 9600) {
+                    probe.WriteStr("AT+IPR=115200\r");
+                    SleepMs(500);
+                    probe.ReadString();
+                }
+                banner = r;
+                probe.Close();
+                SleepMs(400);
+                break;
+            }
+            probe.Close();
+        }
+
+        if (!serial.Open(port, 115200, err)) return false;
+        serial.WriteStr("CLIENT");
+        SleepMs(2000);
+        serial.ReadString();
+
+        WriteFrame(0xC021, Hex("010100140206000000000506000148b807020802"), false, true);
+        for (const auto& f : ReadFrames(2000)) HandleLink(f);
+
+        WriteFrame(0x8021, Hex("0101000a0306c0a88002"), false, true);
+        int64_t end = NowMs() + 6000;
+        while (NowMs() < end) {
+            for (const auto& f : ReadFrames(500)) HandleLink(f);
+            if (ipcp_host_up && ipcp_radio_up) break;
+        }
+        if (!(ipcp_host_up && ipcp_radio_up)) {
+            err = "PPP IPCP did not come up";
+            EmergencyEnd();
+            return false;
+        }
+
+        my_seq = 0x12345678;
+        their_seq = 0;
+        SendIp(TcpSegment(my_seq, 0, kTcpSyn, {}));
+        uint32_t radio_seq = 0;
+        bool synack = false;
+        const int64_t end2 = NowMs() + 4000;
+        while (NowMs() < end2 && !synack) {
+            for (const auto& f : ReadFrames(500)) {
+                if (f.size() >= 2 && f[0] == 0xFF) {
+                    HandleLink(f);
+                    continue;
+                }
+                TcpView v;
+                if (ParseTcp(f, v) && (v.flags & kTcpSyn) && (v.flags & kTcpAck)) {
+                    radio_seq = v.seq;
+                    synack = true;
+                    break;
+                }
+            }
+        }
+        if (!synack) {
+            err = "no TCP SYN-ACK from radio";
+            EmergencyEnd();
+            return false;
+        }
+        my_seq = 0x12345679;
+        their_seq = radio_seq + 1;
+        SendIp(TcpSegment(my_seq, their_seq, kTcpAck, {}));
+        return true;
+    }
+
+    // Called on every failure path and on Close. Ends program mode if possible,
+    // then returns the radio to AT mode at whichever baud it is using.
+    void EmergencyEnd() {
+        if (serial.h != INVALID_HANDLE_VALUE) {
+            Req(Hex("010601"), 1000);
+            serial.Close();
+        }
+        for (int baud : {115200, 9600}) {
+            SerialPort s;
+            std::string e;
+            if (!s.Open(port, baud, e)) continue;
+            s.WriteStr("ATZ\r");
+            SleepMs(700);
+            s.WriteStr("AT+IPR=9600\r");
+            SleepMs(400);
+            s.WriteStr("AT&V\r");
+            SleepMs(900);
+            const std::string r = s.ReadString();
+            s.Close();
+            if (r.find("RADIO:") != std::string::npos || r.find("OK") != std::string::npos) break;
+        }
+    }
+
+    bool ProgramAndAuth(std::string& err) {
+        Req(Hex("010600"), 2000);
+        Req(Hex("01048512bf00000000"), 2000);
+        Req(Hex("000f00"), 2000);
+        auto r = Req(Hex("0300"), 3000);
+        if (!(r.size() >= 35 && r[0] == 0x83 && r[1] == 0x00)) {
+            err = "auth challenge failed";
+            EmergencyEnd();
+            return false;
+        }
+        const std::vector<uint8_t> ch(r.begin() + 3, r.begin() + 35);
+        std::vector<uint8_t> body{0x03, 0x01};
+        const auto a2 = AuthResponse(ch);
+        body.insert(body.end(), a2.begin(), a2.end());
+        r = Req(body, 3000);
+        if (!(r.size() >= 2 && r[0] == 0x83 && r[1] == 0x01)) {
+            err = "auth rejected";
+            EmergencyEnd();
+            return false;
+        }
+        Req(Hex("010881"), 2000);
+        Req(Hex("010280004700000001"), 2000);
+        Req(Hex("010380000201f4"), 2000);
+        Req(Hex("0103800e0b0fff"), 2000);
+        Req(Hex("01078000"), 2000);
+        return true;
+    }
+};
+
+RadioSession::RadioSession() : impl_(new Impl()) {}
+RadioSession::~RadioSession() = default;
+
+std::unique_ptr<RadioSession> RadioSession::Open(const std::string& port, std::string& err) {
+    std::unique_ptr<RadioSession> session(new RadioSession());
+    session->impl_->port = port;
+    if (!session->impl_->Init(err)) return nullptr;
+    return session;
+}
+
+void RadioSession::Close() {
+    if (impl_->serial.h != INVALID_HANDLE_VALUE) impl_->EmergencyEnd();
+}
+
+bool RadioSession::Info(RadioInfo& out, std::string& err) {
+    impl_->Req(Hex("010600"), 2000);
+    const auto rv = impl_->Req(Hex("000f00"), 2000);
+    const auto rs = impl_->Req(Hex("001100"), 2000);
+    out.banner = impl_->banner;
+    out.host = AsciiField(rv, 3);
+    out.serial = AsciiField(rs, 3);
+    out.model = BannerField(impl_->banner, "MODEL");
+    (void)err;
+    return true;
+}
+
+bool RadioSession::ReadRequests(const std::vector<RadioReadRequest>& reqs,
+                                std::vector<Record>& out, std::string& err) {
+    if (!impl_->ProgramAndAuth(err)) return false;
+    for (const auto& q : reqs) {
+        std::vector<uint8_t> body{0x01, 0x00, uint8_t(q.part)};
+        PutBe16(body, q.tag);
+        PutBe16(body, q.inst);
+        PutBe16(body, q.len);
+        PutBe16(body, 0);
+        const auto r = impl_->Req(body, 3000);
+        if (!(r.size() >= 14 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00)) continue;
+        const uint16_t len = Be16(r.data() + 12);
+        if (len == 0 || r.size() < size_t(14) + len) continue;
+
+        Record rec;
+        rec.id = (uint32_t(q.tag) << 16) | q.inst;
+        rec.type = q.part;
+        PutBe32(rec.raw, rec.id);
+        PutBe16(rec.raw, len);
+        rec.raw.insert(rec.raw.end(), r.begin() + 14, r.begin() + 14 + len);
+        rec.checksum = Be16(rec.raw.data() + rec.raw.size() - 2);
+        rec.verified = Crc16Ccitt(rec.raw.data() + 6, rec.raw.size() - 8) == rec.checksum;
+        out.push_back(std::move(rec));
+    }
+    impl_->Req(Hex("010601"), 3000);
+    impl_->serial.Close();
+    return true;
+}
+
+bool RadioSession::WriteRecords(const std::vector<Record>& recs, std::string& err) {
+    if (!impl_->ProgramAndAuth(err)) return false;
+
+    const uint32_t identity[] = {0x10050000u, 0x10040000u, 0x10060000u};
+    std::vector<const Record*> order;
+    for (uint32_t id : identity) {
+        for (const auto& r : recs)
+            if (r.id == id) order.push_back(&r);
+    }
+    for (const auto& r : recs) {
+        bool skip = r.id == 0x00470000u;
+        for (uint32_t id : identity)
+            if (r.id == id) skip = true;
+        if (!skip) order.push_back(&r);
+    }
+    for (const auto& r : recs)
+        if (r.id == 0x00470000u) order.push_back(&r);
+
+    int failed = 0;
+    for (const Record* r : order) {
+        if (!r || r->raw.size() < 8) {
+            ++failed;
+            continue;
+        }
+        const uint16_t len = static_cast<uint16_t>(r->raw.size() - 6);
+        std::vector<uint8_t> body{0x01, 0x01, uint8_t(r->type)};
+        PutBe16(body, static_cast<uint16_t>(r->id >> 16));
+        PutBe16(body, static_cast<uint16_t>(r->id & 0xFFFF));
+        PutBe16(body, len);
+        PutBe32(body, len);
+        body.insert(body.end(), r->raw.begin() + 6, r->raw.end());
+        const auto reply = impl_->Req(body, 5000);
+        if (!(reply.size() >= 3 && reply[0] == 0x81 && reply[1] == 0x01 && reply[2] == 0x00))
+            ++failed;
+    }
+    impl_->Req(Hex("01078000"), 5000);
+    impl_->Req(Hex("010601"), 5000);
+    impl_->serial.Close();
+    if (failed) {
+        err = std::to_string(failed) + " record(s) were not accepted";
+        return false;
+    }
+    return true;
+}
+
+}  // namespace opendepot
+
+#endif  // _WIN32

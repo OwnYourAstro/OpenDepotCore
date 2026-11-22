@@ -3,6 +3,7 @@
 
 #include "opendepot/core/adk.h"
 #include "opendepot/core/crypto.h"
+#include "opendepot/core/radio.h"
 
 #include <windows.h>
 #include <objbase.h>
@@ -21,6 +22,16 @@ static void PrintRecordCsv(const Codeplug& cp) {
         printf("0x%08X,%d,%zu,0x%04X,0x%04X,%d\n", r.id, r.streamNum, r.raw.size(),
                r.type, r.checksum, r.verified ? 1 : 0);
     }
+}
+
+static std::string ToUtf8(const std::wstring& w) {
+    if (w.empty()) return {};
+    const int n = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), nullptr, 0,
+                                      nullptr, nullptr);
+    std::string s(static_cast<size_t>(n), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, w.c_str(), static_cast<int>(w.size()), &s[0], n, nullptr,
+                        nullptr);
+    return s;
 }
 
 static std::wstring ExeDir() {
@@ -834,6 +845,81 @@ int wmain(int argc, wchar_t** argv) {
             if (r.verified) ++good;
         printf("read %zu records (%zu CRC-ok, validated) -> %ls\n", out.records.size(), good,
                outPath.c_str());
+        return 0;
+    }
+    if (cmd == L"--read-radio-native" && argc >= 4) {
+        std::string err;
+        auto session = opendepot::RadioSession::Open(ToUtf8(argv[2]), err);
+        if (!session) {
+            printf("OPEN FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        opendepot::RadioInfo info;
+        session->Info(info, err);
+        std::string model = info.model.empty() ? BuiltinFirstModel() : info.model;
+        Codeplug tpl;
+        std::string berr;
+        if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
+            printf("NO TEMPLATE: %s\n", berr.c_str());
+            session->Close();
+            return 2;
+        }
+        std::vector<opendepot::RadioReadRequest> reqs;
+        reqs.reserve(tpl.records.size());
+        for (const auto& r : tpl.records)
+            reqs.push_back({r.type, static_cast<uint16_t>(r.id >> 16),
+                            static_cast<uint16_t>(r.id & 0xFFFF),
+                            static_cast<uint16_t>(r.raw.size() - 6)});
+        std::vector<opendepot::Record> recs;
+        if (!session->ReadRequests(reqs, recs, err)) {
+            printf("NATIVE READ FAILED: %s\n", err.c_str());
+            session->Close();
+            return 2;
+        }
+        session->Close();
+        Codeplug out = tpl;
+        out.records = std::move(recs);
+        std::string serial, modelName;
+        if (ReadIdentityFromCodeplug(out, serial, modelName)) UpdateIdentity(out, serial, modelName);
+        std::string verr;
+        if (!ValidateRadioCodeplug(out, verr)) {
+            printf("NATIVE READ INCOMPLETE: %s\n", verr.c_str());
+            return 3;
+        }
+        if (!SaveCodeplug(argv[3], out, err)) {
+            printf("SAVE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        size_t good = 0;
+        for (const auto& r : out.records)
+            if (r.verified) ++good;
+        printf("native read %zu records (%zu CRC-ok) -> %ls\n", out.records.size(), good, argv[3]);
+        return 0;
+    }
+    if (cmd == L"--write-radio-native" && argc >= 4) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[3], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        std::string verr;
+        if (!ValidateRadioCodeplug(cp, verr)) {
+            printf("REFUSED: %s\n", verr.c_str());
+            return 3;
+        }
+        std::string err;
+        auto session = opendepot::RadioSession::Open(ToUtf8(argv[2]), err);
+        if (!session) {
+            printf("OPEN FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        const bool ok = session->WriteRecords(cp.records, err);
+        session->Close();
+        if (!ok) {
+            printf("NATIVE WRITE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        printf("native write: %zu records -> %s\n", cp.records.size(), ToUtf8(argv[2]).c_str());
         return 0;
     }
     if (cmd == L"--erase-radio" && argc >= 3) {

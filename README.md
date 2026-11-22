@@ -15,6 +15,14 @@ byte-for-byte against Windows OLE and CryptoAPI output.
 > guard if any validated tag is missing. The pure C++ PPP/RCMP transport and
 > batched writes are the next step.
 >
+> **Experimental, not hardware-ready:** `--read-radio-native` and
+> `--write-radio-native` use the new in-tree serial/PPP/RCMP transport. It
+> compiles and reaches PPP/auth, but reads returned no records on the first
+> test and IPCP failed on the next; the failed session is now force-reset out of
+> program mode. The supported paths remain `--read-radio` / `--write-radio`
+> (vendor `ReadAll` + the fixed Python writer). Do not use the native commands
+> on a radio until they are validated.
+>
 > Write safety: `ValidateRadioCodeplug` now refuses a codeplug that is missing
 > any tag present in a validated complete set for the tested model. This follows
 > an incident where an incomplete 96-record radio read was written to an XTS

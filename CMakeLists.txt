@@ -45,6 +45,10 @@ target_include_directories(opendepot_core PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
+if(WIN32)
+    target_sources(opendepot_core PRIVATE src/radio/native_session.cpp)
+endif()
+
 if(OPENDEPOT_BUILD_C_API)
     add_library(opendepot_c
         src/capi/opendepot_c.cpp
