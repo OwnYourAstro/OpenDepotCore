@@ -201,7 +201,16 @@ bool LoadDepotProfile(const std::string& database_path, const std::string& model
         return true;
     }
 
-    err = "no native profile for " + model + " / " + package;
+    const std::string miss = "no native profile for " + model + " / " + package;
+    if (model.size() == 12 && model.compare(10, 2, "AN") == 0) {
+        std::string alias = model;
+        alias[10] = 'B';
+        if (LoadDepotProfile(database_path, alias, package, out, err)) {
+            out.header.model = model.substr(0, 10) + "AN";
+            return true;
+        }
+    }
+    err = miss;
     return false;
 }
 

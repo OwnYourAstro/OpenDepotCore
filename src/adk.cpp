@@ -436,10 +436,40 @@ bool UpdateIdentity(Codeplug& cp, const std::string& serial, const std::string& 
         for (size_t k = n; k < from.size(); ++k) raw[off + k] = 0;
     };
     for (auto& r : cp.records) {
-        if (r.id != 0x10040000) continue;
+        if (r.id != 0x10040000 || r.raw.size() < 12) continue;
         replace(r.raw, oldSerial, serial);
         replace(r.raw, oldModel, model);
+
+        const size_t end = r.raw.size() - 2;
+        size_t serialStart = 8;  // 6-byte record header + 2-byte identity prefix
+        size_t serialEnd = serialStart;
+        while (serialEnd < end && r.raw[serialEnd] != 0) ++serialEnd;
+        size_t modelStart = serialEnd;
+        while (modelStart < end && r.raw[modelStart] == 0) ++modelStart;
+        size_t modelEnd = modelStart;
+        while (modelEnd < end && r.raw[modelEnd] != 0) ++modelEnd;
+        const size_t serialCap = modelStart - serialStart;
+        const size_t modelCap = modelEnd - modelStart;
+        if (serial.size() <= serialCap && model.size() <= modelCap) {
+            memset(r.raw.data() + serialStart, 0, serialCap);
+            memcpy(r.raw.data() + serialStart, serial.data(), serial.size());
+            memset(r.raw.data() + modelStart, 0, modelCap);
+            memcpy(r.raw.data() + modelStart, model.data(), model.size());
+        }
+        if (r.raw.size() >= 8) {
+            const uint16_t crc = Crc16Ccitt(r.raw.data() + 6, r.raw.size() - 8);
+            r.raw[r.raw.size() - 2] = static_cast<uint8_t>(crc >> 8);
+            r.raw[r.raw.size() - 1] = static_cast<uint8_t>(crc);
+            r.checksum = crc;
+            r.verified = true;
+        }
     }
+
+    uint32_t sum = 0;
+    for (size_t i = 0; i <= 0x40 && i < cp.header.raw.size(); ++i)
+        sum += cp.header.raw[i];
+    if (cp.header.raw.size() > 0x44)
+        cp.header.raw[0x44] = static_cast<uint8_t>(0x5A - sum);
     return true;
 }
 
