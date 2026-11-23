@@ -3,6 +3,7 @@
 
 #include "opendepot/core/adk.h"
 #include "opendepot/core/crypto.h"
+#include "opendepot/core/depot_profiles.h"
 #include "opendepot/core/model.h"
 #include "opendepot/core/radio.h"
 
@@ -628,7 +629,7 @@ int wmain(int argc, wchar_t** argv) {
         printf("  opendepot-cli --flashcode-options <radio|platform>\n");
         printf("  opendepot-cli --build-flashcode <radio|platform> <base> <code,code,...>\n");
         printf("  opendepot-cli --create <template.cpg> <out.cpg> <serial> <model> <flashcode>\n");
-        printf("  opendepot-cli --create-new <out.cpg> <model> <serial> [flashcode]\n");
+        printf("  opendepot-cli --create-new <out.cpg> <model> <serial> [flashcode]\n  opendepot-cli --depot-profile <profiles.bin> <model> <package> <out.cpg>\n");
         printf("  opendepot-cli --conventional <in.cpg> <out.cpg>\n");
         printf("  opendepot-cli --conventional-ref <ref.cpg> <src.cpg> <out.cpg>\n");
         printf("  opendepot-cli --create-conventional <template.cpg> <out.cpg> <serial> <model>\n");
@@ -932,6 +933,24 @@ int wmain(int argc, wchar_t** argv) {
         }
         printf("wrote %ls  model=%s serial=%s flashcode=%s\n", argv[3], model, serial,
                GetFlashcode(created).c_str());
+        return 0;
+    }
+    if (cmd == L"--depot-profile" && argc >= 6) {
+        char model[64] = {}, package[128] = {};
+        WideCharToMultiByte(CP_UTF8, 0, argv[3], -1, model, sizeof(model), nullptr, nullptr);
+        WideCharToMultiByte(CP_UTF8, 0, argv[4], -1, package, sizeof(package), nullptr, nullptr);
+        Codeplug cp;
+        std::string err;
+        if (!LoadDepotProfile(ToUtf8(argv[2]), model, package, cp, err)) {
+            printf("PROFILE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        if (!SaveCodeplug(argv[5], cp, err)) {
+            printf("SAVE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        printf("wrote %ls  model=%s package=%s records=%zu\n", argv[5], model, package,
+               cp.records.size());
         return 0;
     }
     if (cmd == L"--create-new" && argc >= 5) {

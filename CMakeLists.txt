@@ -26,6 +26,7 @@ configure_file(
 add_library(opendepot_core
     src/version.cpp
     src/adk.cpp
+    src/depot_profiles.cpp
     src/flashcode_db.cpp
     src/model_db.cpp
     src/crypto/md5.cpp
@@ -72,6 +73,10 @@ if(OPENDEPOT_BUILD_CLI)
         )
         target_link_libraries(opendepot-cli PRIVATE opendepot_core)
         set_target_properties(opendepot-cli PROPERTIES OUTPUT_NAME "opendepot-cli")
+        add_executable(depot-profile-gen
+            tools/depot_profile_gen.cpp
+        )
+        target_link_libraries(depot-profile-gen PRIVATE opendepot_core)
     else()
         message(STATUS
             "Skipping opendepot-cli: the harness still uses Win32 for process and serial I/O")
