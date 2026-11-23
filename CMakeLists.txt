@@ -36,6 +36,7 @@ add_library(opendepot_core
     src/model/read_requests.cpp
     src/model/codeplug_model.cpp
     src/model/field_catalog.cpp
+    src/model/block_map.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 

@@ -3354,9 +3354,10 @@ const TableDef* FindTable(const char* key) {
 
 uint64_t ReadFieldBits(const uint8_t* data, size_t size, uint16_t off,
                        uint16_t bits, uint8_t msb) {
-    if (!data || bits == 0) return 0;
-    const size_t pos = size_t(off) * 8 + (7 - msb);
-    if (pos + bits > size * 8) return 0;
+    if (!data || bits == 0 || bits > 64 || msb > 7) return 0;
+    const size_t pos = size_t(off) * 8 + size_t(7 - msb);
+    const size_t need = pos + size_t(bits);
+    if (need < pos || need > size * 8) return 0;
     uint64_t value = 0;
     for (uint16_t i = 0; i < bits; ++i) {
         const size_t bit = pos + i;
