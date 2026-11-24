@@ -178,6 +178,91 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
+
+    if (!overflowedModel.RemoveChannel(0, 5) ||
+        overflowedModel.Zone(0)->channels.size() != 15) {
+        std::printf("middle channel removal failed\n");
+        return 1;
+    }
+    const ChannelModel* shifted = overflowedModel.Channel(0, 5);
+    if (!shifted || shifted->name != "BULK06") {
+        std::printf("channel names did not shift after removal\n");
+        return 1;
+    }
+    if (!overflowedModel.Save(temp, err)) {
+        std::printf("removed save failed: %s\n", err.c_str());
+        return 1;
+    }
+    Codeplug removedCp;
+    if (!LoadCodeplug(temp, removedCp)) {
+        std::printf("removed load failed: %s\n", removedCp.error.c_str());
+        return 1;
+    }
+    CodeplugModel removedModel(removedCp);
+    if (!removedModel.Reload(err) || removedModel.Zone(0)->channels.size() != 15) {
+        std::printf("removed channel count wrong: %s\n", err.c_str());
+        return 1;
+    }
+    if (!ValidateRadioCodeplug(removedCp, err)) {
+        std::printf("removed fixture failed validation: %s\n", err.c_str());
+        return 1;
+    }
+    while (removedModel.Zone(0)->channels.size() > 10) {
+        int last = int(removedModel.Zone(0)->channels.size()) - 1;
+        if (!removedModel.RemoveChannel(0, last)) {
+            std::printf("page-one removal failed at %d\n", last);
+            return 1;
+        }
+    }
+    if (!removedModel.Save(temp, err)) {
+        std::printf("10-channel save failed: %s\n", err.c_str());
+        return 1;
+    }
+    Codeplug tenCp;
+    if (!LoadCodeplug(temp, tenCp)) {
+        std::printf("10-channel load failed: %s\n", tenCp.error.c_str());
+        return 1;
+    }
+    CodeplugModel tenModel(tenCp);
+    if (!tenModel.Reload(err) || tenModel.Zone(0)->channels.size() != 10) {
+        std::printf("10-channel decode failed: %s\n", err.c_str());
+        return 1;
+    }
+    if (tenCp.records.size() != 117) {
+        std::printf("expected 117 records after deleting page one, got %zu\n",
+                    tenCp.records.size());
+        return 1;
+    }
+    for (const auto& r : tenCp.records) {
+        const uint16_t tag = uint16_t(r.id >> 16);
+        const uint16_t inst = uint16_t(r.id & 0xFFFF);
+        if ((tag == 0x0FFD && inst == 1) ||
+            (inst == 1 && (tag == 0x0FB4 || tag == 0x0FB5 || tag == 0x0FBE ||
+                           tag == 0x0FCB || tag == 0x0FCC || tag == 0x0FF9 ||
+                           tag == 0x0FFA))) {
+            std::printf("page-one records were not removed\n");
+            return 1;
+        }
+    }
+    if (!ValidateRadioCodeplug(tenCp, err)) {
+        std::printf("10-channel validation failed: %s\n", err.c_str());
+        return 1;
+    }
+    while (tenModel.Zone(0)->channels.size() > 1) {
+        if (!tenModel.RemoveChannel(0, int(tenModel.Zone(0)->channels.size()) - 1)) {
+            std::printf("shrink-to-one removal failed\n");
+            return 1;
+        }
+    }
+    if (tenModel.Zone(0)->channels.size() != 1 ||
+        tenModel.RemoveChannel(0, 0)) {
+        std::printf("last-channel policy was not enforced\n");
+        return 1;
+    }
+    if (!tenModel.Save(temp, err) || !ValidateRadioCodeplug(tenModel.codeplug(), err)) {
+        std::printf("single-channel result failed: %s\n", err.c_str());
+        return 1;
+    }
     std::error_code ec;
     fs::remove(temp, ec);
     std::printf("conventional ok\n");

@@ -157,6 +157,9 @@ public:
     // defaults and updating the zone page and channel-name table.
     bool AddChannel(int zone, const std::string& name, double rxMHz, double txMHz,
                     int* newIndex = nullptr);
+    // Removes a channel and its personality/astro records, preserving the
+    // remaining channel/page/name graph. The last channel in a zone is kept.
+    bool RemoveChannel(int zone, int channel);
     bool SetChannelFrequency(int zone, int channel, double rxMHz, double txMHz);
     bool SetChannelSquelch(int zone, int channel, int rx, int tx);
     bool SetChannelFlags(int zone, int channel, int flags);

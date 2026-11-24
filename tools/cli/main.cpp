@@ -654,6 +654,8 @@ int wmain(int argc, wchar_t** argv) {
         printf("  opendepot-cli --build-flashcode <radio|platform> <base> <code,code,...>\n");
         printf("  opendepot-cli --create <template.cpg> <out.cpg> <serial> <model> <flashcode>\n");
         printf("  opendepot-cli --create-new <out.cpg> <model> <serial> [flashcode]\n  opendepot-cli --depot-profile <profiles.bin> <model> <package> <out.cpg>\n  opendepot-cli --depot-read-set <profiles.bin> <model>\n");
+        printf("  opendepot-cli --add-channel <in.cpg> <out.cpg> <zone> <name> <rxMHz> <txMHz>\n");
+        printf("  opendepot-cli --remove-channel <in.cpg> <out.cpg> <zone> <channel>\n");
         printf("  opendepot-cli --conventional <in.cpg> <out.cpg>\n");
         printf("  opendepot-cli --conventional-ref <ref.cpg> <src.cpg> <out.cpg>\n");
         printf("  opendepot-cli --create-conventional <template.cpg> <out.cpg> <serial> <model>\n");
@@ -1039,6 +1041,36 @@ int wmain(int argc, wchar_t** argv) {
         }
         printf("added channel %d to zone %d: %s  rx=%.5f tx=%.5f -> %ls\n", index + 1,
                zone + 1, name, rx, tx, argv[3]);
+        return 0;
+    }
+    if (cmd == L"--remove-channel" && argc >= 6) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        CodeplugModel model(cp);
+        std::string err;
+        if (!model.Reload(err)) {
+            printf("MODEL FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        const int zone = _wtoi(argv[4]) - 1;
+        const int channel = _wtoi(argv[5]) - 1;
+        if (!model.RemoveChannel(zone, channel)) {
+            printf("REMOVE CHANNEL FAILED (zone/channel invalid, last channel, or referenced)\n");
+            return 2;
+        }
+        if (!model.Save(argv[3], err)) {
+            printf("SAVE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        std::string verr;
+        if (!ValidateRadioCodeplug(model.codeplug(), verr)) {
+            printf("REMOVED CODEPLUG FAILED VALIDATION: %s\n", verr.c_str());
+            return 3;
+        }
+        printf("removed channel %d from zone %d -> %ls\n", channel + 1, zone + 1, argv[3]);
         return 0;
     }
     if (cmd == L"--section-report" && argc >= 3) {

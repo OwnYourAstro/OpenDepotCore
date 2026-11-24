@@ -707,15 +707,18 @@ bool CodeplugModel::AddChannel(int zone, const std::string& name, double rxMHz, 
     }
 
     if (newPage) {
-        // The real 16-channel, two-page codeplug carries one copy of each of
-        // these page-scoped records per channel page.
+        // These records are shared by the second page slot across zones, not
+        // copied once per zone. Real multi-zone H46/H18 codeplugs still carry
+        // only instances 0 and 1, so only create the slot when it is absent.
         static const uint16_t kPageScoped[] = {0x0FB4, 0x0FB5, 0x0FBE, 0x0FCB,
                                                0x0FCC, 0x0FF9, 0x0FFA};
+        const uint16_t pageSlot = uint16_t(target - firstPage);
         for (uint16_t tag : kPageScoped) {
+            if (FindRecord(cp_, tag, pageSlot)) continue;
             const Record* tmpl = nullptr;
             for (const auto& r : cp_.records)
                 if (uint16_t(r.id >> 16) == tag) tmpl = &r;
-            if (tmpl) addRecord(tag, target, RecordPayload(*tmpl));
+            if (tmpl) addRecord(tag, pageSlot, RecordPayload(*tmpl));
         }
     }
 
@@ -723,6 +726,164 @@ bool CodeplugModel::AddChannel(int zone, const std::string& name, double rxMHz, 
     if (!Reload(err)) return fail();
     if (zone >= int(zones_.size()) || zones_[zone].channels.empty()) return fail();
     if (newIndex) *newIndex = int(zones_[zone].channels.size()) - 1;
+    return true;
+}
+
+bool CodeplugModel::RemoveChannel(int zone, int channel) {
+    if (zone < 0 || zone >= int(zones_.size()) || !Channel(zone, channel)) return false;
+    if (zones_[zone].channels.size() <= 1) return false;
+    const Codeplug backup = cp_;
+    auto fail = [&]() {
+        cp_ = backup;
+        std::string ignored;
+        Reload(ignored);
+        return false;
+    };
+
+    // Channel names are zone-scoped. Do not attempt a removal on a table whose
+    // count cannot be matched to the decoded channels.
+    Record* zref = FindRecord(cp_, 0x0FFE, uint16_t(zone));
+    if (!zref) return fail();
+    auto zp = RecordPayload(*zref);
+    if (zp.size() < 12) return fail();
+    const uint16_t namesTag = BE16(&zp[8]);
+    const uint16_t namesInst = BE16(&zp[10]);
+    Record* names = FindRecord(cp_, namesTag, namesInst);
+    if (!names) return fail();
+    auto np = RecordPayload(*names);
+    if (np.size() < 6) return fail();
+    const int nameCount = BE16(&np[4]);
+    if (nameCount != int(zones_[zone].channels.size())) return fail();
+
+    // Locate this zone's pair of channel pages.
+    Record* cref = FindRecord(cp_, 0x0FFC, uint16_t(zone));
+    if (!cref) return fail();
+    auto cpld = RecordPayload(*cref);
+    if (cpld.size() < 12) return fail();
+    const uint16_t pageTag = BE16(&cpld[8]);
+    const uint16_t firstPage = BE16(&cpld[10]);
+    std::vector<uint16_t> pages;
+    for (uint16_t page = firstPage; page <= uint16_t(firstPage + 1); ++page)
+        if (FindRecord(cp_, pageTag, page)) pages.push_back(page);
+    if (pages.empty()) return fail();
+
+    std::vector<std::array<uint8_t, 35>> entries;
+    for (uint16_t page : pages) {
+        const Record* pr = FindRecord(cp_, pageTag, page);
+        if (!pr) return fail();
+        auto pp = RecordPayload(*pr);
+        if (pp.size() < 6) return fail();
+        const int count = BE16(&pp[4]);
+        if (count < 0 || pp.size() < 6 + size_t(count) * 35) return fail();
+        for (int i = 0; i < count; ++i) {
+            std::array<uint8_t, 35> entry{};
+            const size_t o = 6 + size_t(i) * 35;
+            std::copy(pp.begin() + static_cast<std::ptrdiff_t>(o),
+                      pp.begin() + static_cast<std::ptrdiff_t>(o + 35), entry.begin());
+            if (BE16(entry.data()) != 0x0FFB) return fail();
+            entries.push_back(entry);
+        }
+    }
+    if (channel >= int(entries.size()) ||
+        entries.size() != zones_[zone].channels.size())
+        return fail();
+    const uint16_t removedId = BE16(entries[size_t(channel)].data() + 2);
+
+    // Refuse to strand a scan-list or other object that points at this
+    // personality. The zone page and the personality/astro records themselves
+    // are the only references this transaction knows how to maintain.
+    for (const auto& r : cp_.records) {
+        const uint16_t tag = uint16_t(r.id >> 16);
+        if (tag == 0x0FFD || tag == 0x0FFF || tag == 0x0FFB || tag == 0x0FCD)
+            continue;
+        const auto p = RecordPayload(r);
+        for (size_t o = 0; o + 3 < p.size(); ++o) {
+            if (BE16(&p[o]) == 0x0FFB && BE16(&p[o + 2]) == removedId)
+                return fail();
+        }
+    }
+
+    entries.erase(entries.begin() + static_cast<std::ptrdiff_t>(channel));
+
+    std::vector<uint8_t> nn = np;
+    const size_t nameOff = 6 + size_t(channel) * 17;
+    if (nameOff + 17 > nn.size()) return fail();
+    nn.erase(nn.begin() + static_cast<std::ptrdiff_t>(nameOff),
+             nn.begin() + static_cast<std::ptrdiff_t>(nameOff + 17));
+    nn.resize(6 + size_t(nameCount - 1) * 17);
+    PutBE16(nn, 4, uint16_t(nameCount - 1));
+
+    const size_t remaining = entries.size();
+    const size_t page0Count = std::min<size_t>(10, remaining);
+    const size_t page1Count = remaining - page0Count;
+    if (page1Count > 0 && pages.size() < 2) return fail();
+
+    std::vector<uint8_t> p0(6, 0);
+    PutBE16(p0, 4, uint16_t(page0Count));
+    if (page1Count > 0) {
+        p0[0] = uint8_t(pageTag >> 8);
+        p0[1] = uint8_t(pageTag);
+        p0[2] = uint8_t((firstPage + 1) >> 8);
+        p0[3] = uint8_t(firstPage + 1);
+    }
+    for (size_t i = 0; i < page0Count; ++i)
+        p0.insert(p0.end(), entries[i].begin(), entries[i].end());
+    if (!SetItemPayload(cp_, pageTag, firstPage, p0)) return fail();
+
+    if (page1Count > 0) {
+        std::vector<uint8_t> p1(6, 0);
+        PutBE16(p1, 4, uint16_t(page1Count));
+        for (size_t i = 0; i < page1Count; ++i)
+            p1.insert(p1.end(), entries[page0Count + i].begin(),
+                      entries[page0Count + i].end());
+        if (!SetItemPayload(cp_, pageTag, pages[1], p1)) return fail();
+    } else if (pages.size() > 1) {
+        const uint16_t page1 = pages[1];
+        cp_.records.erase(
+            std::remove_if(cp_.records.begin(), cp_.records.end(),
+                           [&](const Record& r) { return r.id == ((uint32_t(pageTag) << 16) | page1); }),
+            cp_.records.end());
+
+        // The slot-1 support records are shared by every zone's second page.
+        // Delete them only when no other zone still has a second page.
+        bool otherSecondPage = false;
+        for (const auto& r : cp_.records) {
+            if (uint16_t(r.id >> 16) != 0x0FFC) continue;
+            if ((r.id & 0xFFFFu) == uint32_t(zone)) continue;
+            const auto p = RecordPayload(r);
+            if (p.size() < 12) continue;
+            if (FindRecord(cp_, BE16(&p[8]), uint16_t(BE16(&p[10]) + 1))) {
+                otherSecondPage = true;
+                break;
+            }
+        }
+        if (!otherSecondPage) {
+            static const uint16_t kPageScoped[] = {0x0FB4, 0x0FB5, 0x0FBE, 0x0FCB,
+                                                   0x0FCC, 0x0FF9, 0x0FFA};
+            for (uint16_t tag : kPageScoped) {
+                cp_.records.erase(
+                    std::remove_if(cp_.records.begin(), cp_.records.end(),
+                                   [&](const Record& r) { return r.id == ((uint32_t(tag) << 16) | 1); }),
+                    cp_.records.end());
+            }
+        }
+    }
+
+    if (!SetItemPayload(cp_, namesTag, namesInst, nn)) return fail();
+    for (uint16_t tag : {uint16_t(0x0FFB), uint16_t(0x0FCD)}) {
+        cp_.records.erase(
+            std::remove_if(cp_.records.begin(), cp_.records.end(),
+                           [&](const Record& r) { return r.id == ((uint32_t(tag) << 16) | removedId); }),
+            cp_.records.end());
+    }
+
+    std::string err;
+    if (!Reload(err)) return fail();
+    if (zone >= int(zones_.size()) ||
+        zones_[zone].channels.size() != int(remaining))
+        return fail();
+    for (const auto& ch : zones_[zone].channels)
+        if (ch.channelId == removedId) return fail();
     return true;
 }
 
