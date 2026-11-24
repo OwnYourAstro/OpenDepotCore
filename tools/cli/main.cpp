@@ -5,6 +5,8 @@
 #include "opendepot/core/crypto.h"
 #include "opendepot/core/depot_profiles.h"
 #include "opendepot/core/model.h"
+#include "opendepot/core/block_map.h"
+#include "opendepot/core/field_catalog.h"
 #include "opendepot/core/radio.h"
 
 #include <windows.h>
@@ -12,6 +14,7 @@
 
 #include <cstdio>
 #include <cwchar>
+#include <cstring>
 #include <algorithm>
 #include <map>
 #include <string>
@@ -83,6 +86,27 @@ static std::wstring ExeDir() {
     std::wstring s = p;
     size_t i = s.find_last_of(L"\\/");
     return i == std::wstring::npos ? L"." : s.substr(0, i);
+}
+
+static std::wstring DepotDbPath() {
+    wchar_t env[MAX_PATH] = {};
+    const DWORD n = GetEnvironmentVariableW(L"OPENDEPOT_PROFILE_DB", env, MAX_PATH);
+    if (n > 0 && n < MAX_PATH && GetFileAttributesW(env) != INVALID_FILE_ATTRIBUTES) return env;
+    const std::wstring d = ExeDir();
+    const wchar_t* rel[] = {
+        L"\\data\\depot_profiles.bin",
+        L"\\..\\OpenDepot\\data\\depot_profiles.bin",
+        L"\\..\\..\\OpenDepot\\data\\depot_profiles.bin",
+        L"\\..\\..\\..\\OpenDepot\\data\\depot_profiles.bin",
+        L"\\..\\..\\..\\..\\OpenDepot\\data\\depot_profiles.bin",
+        L"\\..\\..\\..\\data\\depot_profiles.bin",
+        L"\\..\\..\\..\\..\\data\\depot_profiles.bin",
+    };
+    for (const wchar_t* r : rel) {
+        std::wstring p = d + r;
+        if (GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES) return p;
+    }
+    return L"";
 }
 
 static std::wstring HelperPath() {
@@ -629,7 +653,7 @@ int wmain(int argc, wchar_t** argv) {
         printf("  opendepot-cli --flashcode-options <radio|platform>\n");
         printf("  opendepot-cli --build-flashcode <radio|platform> <base> <code,code,...>\n");
         printf("  opendepot-cli --create <template.cpg> <out.cpg> <serial> <model> <flashcode>\n");
-        printf("  opendepot-cli --create-new <out.cpg> <model> <serial> [flashcode]\n  opendepot-cli --depot-profile <profiles.bin> <model> <package> <out.cpg>\n");
+        printf("  opendepot-cli --create-new <out.cpg> <model> <serial> [flashcode]\n  opendepot-cli --depot-profile <profiles.bin> <model> <package> <out.cpg>\n  opendepot-cli --depot-read-set <profiles.bin> <model>\n");
         printf("  opendepot-cli --conventional <in.cpg> <out.cpg>\n");
         printf("  opendepot-cli --conventional-ref <ref.cpg> <src.cpg> <out.cpg>\n");
         printf("  opendepot-cli --create-conventional <template.cpg> <out.cpg> <serial> <model>\n");
@@ -953,6 +977,150 @@ int wmain(int argc, wchar_t** argv) {
                cp.records.size());
         return 0;
     }
+    if (cmd == L"--depot-read-set" && argc >= 4) {
+        char model[64] = {};
+        WideCharToMultiByte(CP_UTF8, 0, argv[3], -1, model, sizeof(model), nullptr, nullptr);
+        std::vector<ReadRequest> reqs;
+        std::string err;
+        if (!BuildDepotReadRequests(ToUtf8(argv[2]), model, reqs, err)) {
+            printf("READ SET FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        printf("read set: %zu records for model=%s\n", reqs.size(), model);
+        size_t total = 0;
+        for (const auto& r : reqs) total += r.len;
+        printf("total payload bytes: %zu\n", total);
+        for (const auto& r : reqs)
+            printf("SET,%04x,%04x,%04x,%u\n", r.part, r.tag, r.inst, r.len);
+        return 0;
+    }
+    if (cmd == L"--builtin-read-set") {
+        std::vector<ReadRequest> reqs;
+        BuiltinReadRequests(reqs);
+        printf("read set: %zu records\n", reqs.size());
+        size_t total = 0;
+        for (const auto& r : reqs) {
+            total += r.len;
+            printf("SET,%04x,%04x,%04x,%u\n", r.part, r.tag, r.inst, r.len);
+        }
+        printf("total payload bytes: %zu\n", total);
+        return 0;
+    }
+    if (cmd == L"--add-channel" && argc >= 8) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        CodeplugModel model(cp);
+        std::string err;
+        if (!model.Reload(err)) {
+            printf("MODEL FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        char name[64] = {};
+        WideCharToMultiByte(CP_UTF8, 0, argv[5], -1, name, sizeof(name), nullptr, nullptr);
+        const int zone = _wtoi(argv[4]) - 1;
+        const double rx = wcstod(argv[6], nullptr);
+        const double tx = wcstod(argv[7], nullptr);
+        int index = -1;
+        if (!model.AddChannel(zone, name, rx, tx, &index)) {
+            printf("ADD CHANNEL FAILED\n");
+            return 2;
+        }
+        if (!model.Save(argv[3], err)) {
+            printf("SAVE FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        std::string verr;
+        if (!ValidateRadioCodeplug(model.codeplug(), verr)) {
+            printf("ADDED CODEPLUG FAILED VALIDATION: %s\n", verr.c_str());
+            return 3;
+        }
+        printf("added channel %d to zone %d: %s  rx=%.5f tx=%.5f -> %ls\n", index + 1,
+               zone + 1, name, rx, tx, argv[3]);
+        return 0;
+    }
+    if (cmd == L"--section-report" && argc >= 3) {
+        Codeplug cp;
+        if (!LoadCodeplug(argv[2], cp)) {
+            printf("LOAD FAILED: %s\n", cp.error.c_str());
+            return 2;
+        }
+        CodeplugModel model(cp);
+        std::string err;
+        if (!model.Reload(err)) {
+            printf("MODEL FAILED: %s\n", err.c_str());
+            return 2;
+        }
+        std::map<uint32_t, const RecordNode*> nodes;
+        for (const auto& n : model.RecordNodes()) nodes[n.id] = &n;
+        size_t fieldCount = 0;
+        const FieldDef* fields = FieldCatalog(fieldCount);
+        printf("model=%s records=%zu sections=%zu\n", cp.header.model.c_str(),
+               cp.records.size(), model.Sections().size());
+        for (const auto& s : model.Sections()) {
+            int exact = 0, byType = 0, bySize = 0, none = 0;
+            for (uint32_t id : s.records) {
+                auto it = nodes.find(id);
+                if (it == nodes.end()) continue;
+                const RecordNode* n = it->second;
+                char tagText[16];
+                std::snprintf(tagText, sizeof(tagText), "0x%04X", n->tag);
+                bool hasExact = false;
+                for (size_t i = 0; i < fieldCount; ++i) {
+                    const auto& f = fields[i];
+                    if (!f.recordTag || !f.name || f.bits == 0 || f.bits > 32 || f.msb > 7)
+                        continue;
+                    if (_stricmp(f.recordTag, tagText) == 0) {
+                        hasExact = true;
+                        break;
+                    }
+                }
+                if (hasExact) {
+                    ++exact;
+                    continue;
+                }
+                const BlockTagInfo* block = FindBlockByTag(n->tag);
+                bool hasType = false;
+                if (block) {
+                    for (size_t i = 0; i < fieldCount; ++i) {
+                        const auto& f = fields[i];
+                        if (f.blockId == int(block->type) && f.name && f.bits > 0 &&
+                            f.bits <= 32 && f.msb <= 7) {
+                            hasType = true;
+                            break;
+                        }
+                    }
+                }
+                if (hasType) {
+                    ++byType;
+                    continue;
+                }
+                std::map<std::string, int> groupSize;
+                for (size_t i = 0; i < fieldCount; ++i) {
+                    const auto& f = fields[i];
+                    if (!f.name || f.bits == 0 || f.bits > 32 || f.msb > 7) continue;
+                    const std::string g = f.group ? f.group : "";
+                    const int end = int(f.off) * 8 + int(f.bits);
+                    if (end > groupSize[g]) groupSize[g] = end;
+                }
+                bool hasSize = false;
+                for (const auto& kv : groupSize)
+                    if ((kv.second + 7) / 8 == int(n->payload.size())) {
+                        hasSize = true;
+                        break;
+                    }
+                if (hasSize)
+                    ++bySize;
+                else
+                    ++none;
+            }
+            printf("%-22s %-28s records=%3zu exact=%3d type=%3d size=%3d none=%3d\n",
+                   s.id.c_str(), s.name.c_str(), s.records.size(), exact, byType, bySize, none);
+        }
+        return 0;
+    }
     if (cmd == L"--create-new" && argc >= 5) {
         // Template-free: --create-new <out.cpg> <model> <serial> [flashcode]
         char model[64] = {}, serial[64] = {}, flash[64] = {};
@@ -1129,21 +1297,61 @@ int wmain(int argc, wchar_t** argv) {
             return 2;
         }
         std::string model;
+        const std::wstring dbPath = DepotDbPath();
         if (!haveTemplate) {
             opendepot::RadioInfo info;
             session->Info(info, err);
             model = info.model.empty() ? BuiltinFirstModel() : info.model;
             std::string berr;
             if (!BuiltinTemplate(model, tpl, berr) || tpl.records.empty()) {
-                printf("NO TEMPLATE: %s\n", berr.c_str());
-                session->Close();
-                return 2;
+                bool loaded = false;
+                if (!dbPath.empty()) {
+                    std::vector<opendepot::DepotProfileInfo> profiles;
+                    std::string derr;
+                    if (opendepot::ListDepotProfiles(ToUtf8(dbPath), profiles, derr)) {
+                        std::string chosen;
+                        for (const auto& p : profiles)
+                            if (p.model == model) {
+                                chosen = p.package;
+                                break;
+                            }
+                        if (!chosen.empty())
+                            loaded = opendepot::LoadDepotProfile(ToUtf8(dbPath), model, chosen,
+                                                                 tpl, derr);
+                    }
+                }
+                if (!loaded || tpl.records.empty()) {
+                    printf("NO TEMPLATE: %s\n", berr.c_str());
+                    session->Close();
+                    return 2;
+                }
             }
             outPath = argv[3];
         }
         std::vector<opendepot::RadioReadRequest> reqs;
         std::vector<opendepot::ReadRequest> modelReqs;
-        if (!haveTemplate) ModelReadRequests(model, modelReqs);
+        if (!haveTemplate) {
+            std::vector<opendepot::ReadRequest> validatedReqs;
+            ModelReadRequests(model, validatedReqs);
+            modelReqs = validatedReqs;
+            if (modelReqs.empty() && !dbPath.empty()) {
+                std::string derr;
+                if (opendepot::BuildDepotReadRequests(ToUtf8(dbPath), model, modelReqs, derr) &&
+                    !modelReqs.empty()) {
+                    printf("read set: %zu records from depot profiles\n", modelReqs.size());
+                }
+            }
+            if (modelReqs.empty()) {
+                BuiltinReadRequests(modelReqs);
+                if (!modelReqs.empty())
+                    printf("read set: %zu records from built-in schemas\n", modelReqs.size());
+            }
+            if (validatedReqs.empty()) {
+                const size_t before = modelReqs.size();
+                opendepot::AppendTypeScan(modelReqs);
+                printf("deep scan: %zu additional type probes\n", modelReqs.size() - before);
+            }
+        }
         if (!modelReqs.empty()) {
             reqs.reserve(modelReqs.size());
             for (const auto& r : modelReqs) reqs.push_back({r.part, r.tag, r.inst, r.len});
@@ -1154,8 +1362,29 @@ int wmain(int argc, wchar_t** argv) {
                                 static_cast<uint16_t>(r.id & 0xFFFF),
                                 static_cast<uint16_t>(r.raw.size() - 6)});
         }
+        if (reqs.empty()) {
+            printf("NO READ SET: no profile, template, or built-in records for %s\n",
+                   model.c_str());
+            session->Close();
+            return 2;
+        }
+        std::map<std::pair<uint16_t, uint16_t>, opendepot::RadioReadRequest> typeMap;
+        for (const auto& r : reqs) {
+            const auto key = std::make_pair(r.part, r.tag);
+            auto it = typeMap.find(key);
+            if (it == typeMap.end()) {
+                typeMap.emplace(key, r);
+            } else {
+                if (r.inst < it->second.inst) it->second.inst = r.inst;
+                if (r.len > it->second.len) it->second.len = r.len;
+            }
+        }
+        std::vector<opendepot::RadioReadRequest> types;
+        types.reserve(typeMap.size());
+        for (const auto& kv : typeMap) types.push_back(kv.second);
+        printf("reading %zu type(s), all instances\n", types.size());
         std::vector<opendepot::Record> recs;
-        if (!session->ReadRequests(reqs, recs, err)) {
+        if (!session->ReadAllTypeInstances(types, recs, err)) {
             printf("NATIVE READ FAILED: %s\n", err.c_str());
             session->Close();
             return 2;
@@ -1705,8 +1934,3 @@ int wmain(int argc, wchar_t** argv) {
     printf("unknown or incomplete command\n");
     return 1;
 }
-
-
-
-
-

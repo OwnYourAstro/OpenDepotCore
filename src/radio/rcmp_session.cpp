@@ -1,19 +1,18 @@
-// SPDX-FileCopyrightText: 2026 Sarah Rose
+﻿// SPDX-FileCopyrightText: 2026 Sarah Rose
 // SPDX-License-Identifier: MIT
 
 #include "opendepot/core/radio.h"
-
-#ifdef _WIN32
-
-#include <windows.h>
+#include "opendepot/core/serial_link.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <set>
 #include <thread>
+#include <utility>
 #include <vector>
 
 namespace opendepot {
@@ -127,86 +126,6 @@ uint16_t Checksum(const uint8_t* data, size_t n) {
     while (sum >> 16) sum = (sum & 0xFFFF) + (sum >> 16);
     return uint16_t(~sum & 0xFFFF);
 }
-
-struct SerialPort {
-    HANDLE h = INVALID_HANDLE_VALUE;
-
-    bool Open(const std::string& port, uint32_t baud, std::string& err) {
-        const std::wstring w(port.begin(), port.end());
-        const std::wstring dev = L"\\\\.\\" + w;
-        h = CreateFileW(dev.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0,
-                        nullptr);
-        if (h == INVALID_HANDLE_VALUE) {
-            err = "cannot open " + port;
-            return false;
-        }
-        DCB dcb{};
-        dcb.DCBlength = sizeof(dcb);
-        if (!GetCommState(h, &dcb)) {
-            err = "GetCommState failed";
-            Close();
-            return false;
-        }
-        dcb.BaudRate = baud;
-        dcb.ByteSize = 8;
-        dcb.Parity = NOPARITY;
-        dcb.StopBits = ONESTOPBIT;
-        dcb.fBinary = TRUE;
-        dcb.fParity = FALSE;
-        dcb.fOutxCtsFlow = TRUE;
-        dcb.fRtsControl = RTS_CONTROL_HANDSHAKE;
-        dcb.fDtrControl = DTR_CONTROL_ENABLE;
-        dcb.fOutX = FALSE;
-        dcb.fInX = FALSE;
-        dcb.fDsrSensitivity = FALSE;
-        SetCommState(h, &dcb);
-        COMMTIMEOUTS to{};
-        to.ReadIntervalTimeout = 10;
-        to.ReadTotalTimeoutConstant = 10;
-        to.ReadTotalTimeoutMultiplier = 0;
-        to.WriteTotalTimeoutConstant = 1000;
-        to.WriteTotalTimeoutMultiplier = 0;
-        SetCommTimeouts(h, &to);
-        PurgeComm(h, PURGE_RXCLEAR | PURGE_TXCLEAR);
-        return true;
-    }
-
-    void Close() {
-        if (h != INVALID_HANDLE_VALUE) {
-            CloseHandle(h);
-            h = INVALID_HANDLE_VALUE;
-        }
-    }
-
-    bool Write(const uint8_t* data, size_t n) {
-        DWORD written = 0;
-        return WriteFile(h, data, DWORD(n), &written, nullptr) && written == n;
-    }
-    bool WriteStr(const char* s) { return Write(reinterpret_cast<const uint8_t*>(s), strlen(s)); }
-
-    size_t Available() {
-        COMSTAT st{};
-        DWORD errors = 0;
-        if (!ClearCommError(h, &errors, &st)) return 0;
-        return st.cbInQue;
-    }
-
-    size_t Read(uint8_t* buf, size_t n) {
-        DWORD got = 0;
-        if (!ReadFile(h, buf, DWORD(n), &got, nullptr)) return 0;
-        return got;
-    }
-
-    std::string ReadString() {
-        std::string out;
-        while (size_t n = Available()) {
-            std::vector<uint8_t> tmp(n);
-            const size_t got = Read(tmp.data(), n);
-            out.append(reinterpret_cast<char*>(tmp.data()), got);
-        }
-        return out;
-    }
-};
 
 struct TcpView {
     bool ok = false;
@@ -342,14 +261,16 @@ std::string BannerField(const std::string& banner, const char* key) {
 }  // namespace
 
 struct RadioSession::Impl {
-    std::string port;
+    std::unique_ptr<SerialLink> link;
+    bool link_open = false;
     std::string banner;
-    SerialPort serial;
     std::vector<uint8_t> frame_buf;
     std::vector<uint8_t> rxbuf;
     uint32_t my_seq = 0;
     uint32_t their_seq = 0;
     uint16_t ip_id = 1;
+    bool lcp_up = false;
+    bool ipcp_sent = false;
     bool ipcp_radio_up = false;
     bool ipcp_host_up = false;
 
@@ -379,15 +300,66 @@ struct RadioSession::Impl {
         return s;
     }
 
+    bool OpenLink(uint32_t baud, std::string& err) {
+        if (!link) {
+            err = "no serial link";
+            return false;
+        }
+        CloseLink();
+        link_open = link->Open(baud, err);
+        if (link_open) link->Purge();
+        return link_open;
+    }
+
+    bool Reconfigure(uint32_t baud, std::string& err) {
+        if (!link_open) return OpenLink(baud, err);
+        if (link->Reconfigure(baud, err)) return true;
+        return OpenLink(baud, err);
+    }
+
+    void CloseLink() {
+        if (link && link_open) link->Close();
+        link_open = false;
+    }
+
+    size_t ReadRaw(uint8_t* data, size_t n, int timeout_ms) {
+        if (!link_open || !link) return 0;
+        return link->Read(data, n, timeout_ms);
+    }
+
+    bool WriteRaw(const uint8_t* data, size_t n) {
+        return link_open && link && link->Write(data, n);
+    }
+
+    void WriteStr(const char* s) {
+        WriteRaw(reinterpret_cast<const uint8_t*>(s), std::strlen(s));
+    }
+
+    std::string ReadString(int total_ms = 1200) {
+        std::string out;
+        const int64_t end = NowMs() + total_ms;
+        int64_t last_data = NowMs();
+        while (NowMs() < end) {
+            uint8_t tmp[512];
+            const size_t got = ReadRaw(tmp, sizeof(tmp), 10);
+            if (got) {
+                out.append(reinterpret_cast<char*>(tmp), got);
+                last_data = NowMs();
+            } else if (NowMs() - last_data > 150) {
+                break;
+            }
+        }
+        return out;
+    }
+
     std::vector<std::vector<uint8_t>> ReadFrames(int ms) {
         std::vector<std::vector<uint8_t>> out;
         const int64_t end = NowMs() + ms;
         while (NowMs() < end) {
-            const size_t n = serial.Available();
-            if (n) {
-                std::vector<uint8_t> tmp(n);
-                const size_t got = serial.Read(tmp.data(), n);
-                frame_buf.insert(frame_buf.end(), tmp.begin(), tmp.begin() + got);
+            uint8_t tmp[4096];
+            const size_t got = ReadRaw(tmp, sizeof(tmp), 10);
+            if (got) {
+                frame_buf.insert(frame_buf.end(), tmp, tmp + got);
                 size_t i = 0;
                 while (true) {
                     auto p = std::find(frame_buf.begin() + i, frame_buf.end(), 0x7E);
@@ -403,7 +375,7 @@ struct RadioSession::Impl {
                 }
                 if (!out.empty()) return out;
             } else {
-                SleepMs(5);
+                SleepMs(2);
             }
         }
         return out;
@@ -411,13 +383,13 @@ struct RadioSession::Impl {
 
     void WriteFrame(uint16_t proto, const std::vector<uint8_t>& data, bool pfc, bool addr) {
         const auto f = Frame(proto, data, pfc, addr);
-        serial.Write(f.data(), f.size());
+        WriteRaw(f.data(), f.size());
     }
 
     void SendIp(const std::vector<uint8_t>& payload, uint8_t proto = 6) {
         const auto pkt = IpPacket(proto, payload, ip_id++);
         const auto f = Frame(0x21, pkt, true, false);
-        serial.Write(f.data(), f.size());
+        WriteRaw(f.data(), f.size());
     }
 
     void Ack() { SendIp(TcpSegment(my_seq, their_seq, kTcpAck, {})); }
@@ -428,11 +400,16 @@ struct RadioSession::Impl {
         const std::vector<uint8_t> data(f.begin() + 6, f.end() - 2);
         if (proto == 0xC021) {
             const uint8_t code = f[4];
+            Log("LCP code=%u id=%u len=%zu", code, f[5], data.size());
             if (code == 1) {
                 std::vector<uint8_t> body{2, f[5]};
                 body.insert(body.end(), data.begin(), data.end());
                 WriteFrame(0xC021, body, false, true);
+            } else if (code == 2) {
+                lcp_up = true;
+                Log("LCP up");
             } else if (code == 9) {
+                Log("LCP terminate");
                 std::vector<uint8_t> body{0x0A, f[5]};
                 body.insert(body.end(), data.begin(), data.end());
                 WriteFrame(0xC021, body, false, true);
@@ -442,7 +419,7 @@ struct RadioSession::Impl {
             if (code == 1) {
                 std::vector<uint8_t> vj;
                 bool has_vj = false;
-                for (size_t i = 0; i + 2 <= data.size();) {
+                for (size_t i = 2; i + 2 <= data.size();) {
                     const uint8_t t = data[i];
                     const uint8_t l = data[i + 1];
                     if (l < 2 || i + l > data.size()) break;
@@ -452,18 +429,28 @@ struct RadioSession::Impl {
                     }
                     i += l;
                 }
+                Log("IPCP req id=%u has_vj=%d opts=%s", f[5], has_vj ? 1 : 0,
+                    HexShort(data).c_str());
                 if (has_vj) {
                     std::vector<uint8_t> body{4, f[5]};
+                    PutBe16(body, static_cast<uint16_t>(4 + vj.size()));
                     body.insert(body.end(), vj.begin(), vj.end());
                     WriteFrame(0x8021, body, false, true);
+                    Log("IPCP sent reject vj=%s", HexShort(vj).c_str());
                 } else {
                     std::vector<uint8_t> body{2, f[5]};
                     body.insert(body.end(), data.begin(), data.end());
                     WriteFrame(0x8021, body, false, true);
                     ipcp_radio_up = true;
+                    Log("IPCP sent ack");
                 }
             } else if (code == 2) {
                 ipcp_host_up = true;
+                Log("IPCP ack id=%u", f[5]);
+            } else if (code == 4) {
+                Log("IPCP reject id=%u", f[5]);
+            } else if (code == 3) {
+                Log("IPCP nak id=%u", f[5]);
             }
         }
     }
@@ -507,7 +494,7 @@ struct RadioSession::Impl {
         while (true) {
             if (rxbuf.size() >= 2) {
                 const uint16_t len = Be16(rxbuf.data());
-                if (len <= 4096 && rxbuf.size() >= size_t(2) + len) {
+                if (len <= 0xFFFF && rxbuf.size() >= size_t(2) + len) {
                     std::vector<uint8_t> out(rxbuf.begin() + 2, rxbuf.begin() + 2 + len);
                     rxbuf.erase(rxbuf.begin(), rxbuf.begin() + 2 + len);
                     return out;
@@ -524,56 +511,114 @@ struct RadioSession::Impl {
     }
 
     bool Init(std::string& err) {
-        wchar_t tmp[MAX_PATH] = {};
-        GetTempPathW(MAX_PATH, tmp);
-        const std::wstring logPath = std::wstring(tmp) + L"opendepot-native.log";
-        log = _wfopen(logPath.c_str(), L"w");
-        Log("native init port=%s", port.c_str());
+        if (const char* log_path = std::getenv("OPENDEPOT_NATIVE_LOG"))
+            if (*log_path) log = std::fopen(log_path, "w");
+        Log("native init");
 
-        for (int baud : {9600, 115200}) {
-            SerialPort probe;
-            if (!probe.Open(port, baud, err)) continue;
-            probe.WriteStr("AT&V\r");
-            SleepMs(1500);
-            const std::string r = probe.ReadString();
-            Log("AT&V @%d: %s", baud, r.substr(0, 48).c_str());
-            if (r.find("CARRIER") != std::string::npos || r.find("RADIO") != std::string::npos ||
-                r.find("OK") != std::string::npos || r.find("ERROR") != std::string::npos) {
-                probe.WriteStr("AT#DATLCL=1\r");
-                SleepMs(500);
-                probe.ReadString();
-                if (baud == 9600) {
-                    probe.WriteStr("AT+IPR=115200\r");
-                    SleepMs(500);
-                    probe.ReadString();
-                }
-                banner = r;
-                probe.Close();
-                SleepMs(400);
-                break;
+        auto at_response = [](const std::string& r) {
+            return r.find("CARRIER") != std::string::npos ||
+                   r.find("RADIO") != std::string::npos ||
+                   r.find("OK") != std::string::npos ||
+                   r.find("ERROR") != std::string::npos;
+        };
+        auto probe = [&](int baud, std::string& out) {
+            std::string open_err;
+            Log("probe open %d", baud);
+            if (!OpenLink(baud, open_err)) {
+                Log("probe open failed %d: %s", baud, open_err.c_str());
+                return false;
             }
-            probe.Close();
+            Log("probe write AT&V %d", baud);
+            WriteStr("AT&V\r");
+            Log("probe read %d", baud);
+            out = ReadString(3000);
+            Log("AT&V @%d len=%zu: %s", baud, out.size(), out.c_str());
+            CloseLink();
+            return at_response(out);
+        };
+
+        std::string r9600, r115200;
+        bool at9600 = probe(9600, r9600);
+        if (!at9600 && probe(115200, r115200)) {
+            // The radio was left at 115200. Normalize back to 9600 so the
+            // Depot DATLCL/IPR sequence is used exactly as on Windows.
+            std::string e;
+            Log("normalize to 9600");
+            if (OpenLink(115200, e)) {
+                WriteStr("AT+IPR=9600\r");
+                const std::string nr = ReadString(900);
+                Log("normalize resp: %s", nr.c_str());
+                CloseLink();
+            } else {
+                Log("normalize open failed: %s", e.c_str());
+            }
+            SleepMs(600);
+            at9600 = probe(9600, r9600);
         }
 
-        if (!serial.Open(port, 115200, err)) return false;
-        serial.WriteStr("CLIENT");
-        SleepMs(2000);
-        serial.ReadString();
+        if (at9600) {
+            std::string e;
+            if (!OpenLink(9600, e)) {
+                err = e;
+                return false;
+            }
+            Log("DATLCL at 9600");
+            WriteStr("AT#DATLCL=1\r");
+            const std::string dcl = ReadString(900);
+            Log("DATLCL resp: %s", dcl.c_str());
+            Log("IPR=115200 at 9600");
+            WriteStr("AT+IPR=115200\r");
+            const std::string ipr = ReadString(900);
+            Log("IPR resp: %s", ipr.c_str());
+            banner = r9600;
+            CloseLink();
+            SleepMs(500);
+        } else {
+            // Last resort: use 115200 AT mode directly.
+            std::string e;
+            if (!OpenLink(115200, e)) {
+                err = r115200.empty() ? "no AT response at 9600 or 115200" : e;
+                return false;
+            }
+            WriteStr("AT&V\r");
+            banner = ReadString(1500);
+            WriteStr("AT#DATLCL=1\r");
+            ReadString(600);
+            CloseLink();
+            SleepMs(500);
+        }
+
+        if (!OpenLink(115200, err)) return false;
+        WriteStr("CLIENT");
+        Log("CLIENT sent");
+        // Keep reading continuously; sleeping here overflows the FTDI buffer and
+        // can lose the radio's first LCP frames.
+        int64_t client_end = NowMs() + 1500;
+        while (NowMs() < client_end) {
+            for (const auto& f : ReadFrames(100)) {
+                Log("rx post-client %s", HexShort(f).c_str());
+                HandleLink(f);
+            }
+        }
 
         Log("LCP tx");
         WriteFrame(0xC021, Hex("010100140206000000000506000148b807020802"), false, true);
-        for (const auto& f : ReadFrames(2000)) {
-            Log("rx link %s", HexShort(f).c_str());
-            HandleLink(f);
-        }
-
-        Log("IPCP tx");
-        WriteFrame(0x8021, Hex("0101000a0306c0a88002"), false, true);
-        int64_t end = NowMs() + 6000;
+        int64_t end = NowMs() + 8000;
+        int64_t last_ipcp_tx = 0;
         while (NowMs() < end) {
             for (const auto& f : ReadFrames(500)) {
                 Log("rx link %s", HexShort(f).c_str());
                 HandleLink(f);
+            }
+            if (lcp_up && !ipcp_sent) {
+                Log("IPCP tx (LCP up)");
+                WriteFrame(0x8021, Hex("0101000a0306c0a88002"), false, true);
+                ipcp_sent = true;
+                last_ipcp_tx = NowMs();
+            } else if (ipcp_sent && !ipcp_host_up && NowMs() - last_ipcp_tx > 1500) {
+                Log("IPCP retransmit");
+                WriteFrame(0x8021, Hex("0101000a0306c0a88002"), false, true);
+                last_ipcp_tx = NowMs();
             }
             if (ipcp_host_up && ipcp_radio_up) break;
         }
@@ -620,27 +665,28 @@ struct RadioSession::Impl {
     // Called on every failure path and on Close. Ends program mode if possible,
     // then returns the radio to AT mode at whichever baud it is using.
     void ResetToAt() {
-        serial.Close();
+        CloseLink();
+        SleepMs(1500);  // let the radio notice that PPP carrier is gone
         for (int baud : {115200, 9600}) {
-            SerialPort s;
             std::string e;
-            if (!s.Open(port, baud, e)) continue;
-            s.WriteStr("ATZ\r");
-            SleepMs(700);
-            s.WriteStr("AT+IPR=9600\r");
-            SleepMs(400);
-            s.WriteStr("AT&V\r");
-            SleepMs(900);
-            const std::string r = s.ReadString();
-            s.Close();
+            if (!OpenLink(baud, e)) continue;
+            WriteStr("ATZ\r");
+            ReadString(800);
+            WriteStr("ATZ\r");
+            ReadString(800);
+            WriteStr("AT+IPR=9600\r");
+            ReadString(500);
+            WriteStr("AT&V\r");
+            const std::string r = ReadString(3000);
+            CloseLink();
             if (r.find("RADIO:") != std::string::npos || r.find("OK") != std::string::npos) break;
         }
     }
 
     void EmergencyEnd() {
-        if (serial.h != INVALID_HANDLE_VALUE) {
+        if (link_open) {
             Req(Hex("010601"), 1000);
-            serial.Close();
+            CloseLink();
         }
         ResetToAt();
     }
@@ -689,15 +735,20 @@ struct RadioSession::Impl {
 RadioSession::RadioSession() : impl_(new Impl()) {}
 RadioSession::~RadioSession() = default;
 
-std::unique_ptr<RadioSession> RadioSession::Open(const std::string& port, std::string& err) {
+std::unique_ptr<RadioSession> RadioSession::OpenWithLink(std::unique_ptr<SerialLink> link,
+                                                         std::string& err) {
+    if (!link) {
+        err = "no serial link";
+        return nullptr;
+    }
     std::unique_ptr<RadioSession> session(new RadioSession());
-    session->impl_->port = port;
+    session->impl_->link = std::move(link);
     if (!session->impl_->Init(err)) return nullptr;
     return session;
 }
 
 void RadioSession::Close() {
-    if (impl_->serial.h != INVALID_HANDLE_VALUE) impl_->EmergencyEnd();
+    if (impl_->link_open) impl_->EmergencyEnd();
 }
 
 bool RadioSession::Info(RadioInfo& out, std::string& err) {
@@ -759,6 +810,70 @@ bool RadioSession::ReadRequests(const std::vector<RadioReadRequest>& reqs,
     return true;
 }
 
+bool RadioSession::ReadAllTypeInstances(const std::vector<RadioReadRequest>& types,
+                                        std::vector<Record>& out, std::string& err) {
+    impl_->ReadPreamble();
+    std::set<uint64_t> seen;
+    for (const auto& t : types) {
+        uint16_t used = t.part;
+        uint16_t read_len = t.len > 0x370 ? t.len : 0x370;
+        const int probe_timeout = t.len == 0 ? 600 : 3000;
+        auto read_one = [&](uint16_t part, uint16_t inst, int timeout) {
+            std::vector<uint8_t> body{0x01, 0x00, uint8_t(part)};
+            PutBe16(body, t.tag);
+            PutBe16(body, inst);
+            PutBe16(body, read_len);
+            PutBe16(body, 0);
+            return impl_->Req(body, timeout);
+        };
+        auto read_first = [&](uint16_t inst) {
+            auto r = read_one(used, inst, probe_timeout);
+            if (r.size() >= 3 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00) return r;
+            if (t.len == 0) return r;  // scan probe: the other partition is probed too
+            const uint16_t alt = static_cast<uint16_t>(t.part ^ 0x0001);
+            auto r2 = read_one(alt, inst, probe_timeout);
+            if (r2.size() >= 3 && r2[0] == 0x81 && r2[1] == 0x00 && r2[2] == 0x00) {
+                used = alt;
+                return r2;
+            }
+            return r;
+        };
+        uint32_t start = 0;
+        auto r = read_first(0);
+        if (!(r.size() >= 3 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00)) {
+            if (t.len == 0) continue;  // scan probe: tag does not exist
+            start = t.inst ? t.inst : 1;
+            r = read_first(static_cast<uint16_t>(start));
+        }
+        size_t count = 0;
+        for (uint32_t inst = start; inst <= 0xFFFF; ++inst) {
+            if (inst != start) r = read_one(used, static_cast<uint16_t>(inst), 3000);
+            if (!(r.size() >= 14 && r[0] == 0x81 && r[1] == 0x00 && r[2] == 0x00)) break;
+            const uint16_t len = Be16(r.data() + 12);
+            if (len == 0 || r.size() < size_t(14) + len) break;
+            const uint32_t id = (uint32_t(t.tag) << 16) | uint16_t(inst);
+            const uint64_t key = (uint64_t(used) << 32) | id;
+            if (seen.insert(key).second) {
+                Record rec;
+                rec.id = id;
+                rec.type = used;
+                PutBe32(rec.raw, rec.id);
+                PutBe16(rec.raw, len);
+                rec.raw.insert(rec.raw.end(), r.begin() + 14, r.begin() + 14 + len);
+                rec.checksum = Be16(rec.raw.data() + rec.raw.size() - 2);
+                rec.verified = Crc16Ccitt(rec.raw.data() + 6, rec.raw.size() - 8) == rec.checksum;
+                out.push_back(std::move(rec));
+                ++count;
+            }
+        }
+        impl_->Log("read-all %02x/%04x: %zu instance(s)", used, t.tag, count);
+    }
+    impl_->Req(Hex("010601"), 3000);
+    impl_->ResetToAt();
+    (void)err;
+    return true;
+}
+
 bool RadioSession::WriteRecords(const std::vector<Record>& recs, std::string& err) {
     if (!impl_->ProgramAndAuth(err)) return false;
 
@@ -806,4 +921,8 @@ bool RadioSession::WriteRecords(const std::vector<Record>& recs, std::string& er
 
 }  // namespace opendepot
 
-#endif  // _WIN32
+
+
+
+
+

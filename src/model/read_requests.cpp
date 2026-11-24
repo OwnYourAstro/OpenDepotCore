@@ -56,4 +56,16 @@ void ModelReadRequests(const std::string& model, std::vector<ReadRequest>& out) 
     for (const auto& r : kH46UCF9PW6BN) out.push_back({r[0], r[1], r[2], r[3]});
 }
 
+void AppendTypeScan(std::vector<ReadRequest>& out) {
+    auto add = [&](uint16_t part, uint16_t tag) {
+        for (const auto& r : out)
+            if (r.part == part && r.tag == tag) return;
+        out.push_back(ReadRequest{part, tag, 0, 0});
+    };
+    // Unknown conventional/zone/personality tags live in this range. Probing
+    // only instance 0 is cheap; existing tags are then read completely.
+    for (uint16_t part : {uint16_t(0x0080), uint16_t(0x0081)})
+        for (uint16_t tag = 0x0000; tag <= 0x00FF; ++tag) add(part, tag);
+}
+
 }  // namespace opendepot

@@ -3,9 +3,12 @@
 
 #include "opendepot/core/depot_profiles.h"
 
+#include <algorithm>
 #include <cstdint>
 #include <fstream>
+#include <map>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace opendepot {
@@ -212,6 +215,146 @@ bool LoadDepotProfile(const std::string& database_path, const std::string& model
     }
     err = miss;
     return false;
+}
+
+bool BuildDepotReadRequests(const std::string& database_path, const std::string& model,
+                            std::vector<ReadRequest>& out, std::string& err) {
+    out.clear();
+    err.clear();
+    std::ifstream in(database_path, std::ios::binary);
+    if (!in) {
+        err = "cannot open native profile database: " + database_path;
+        return false;
+    }
+
+    char magic[8];
+    if (!ReadBytes(in, magic, sizeof(magic)) || std::string(magic, sizeof(magic)) !=
+                                                   std::string(kMagic, sizeof(kMagic))) {
+        err = "invalid native profile database";
+        return false;
+    }
+
+    uint32_t record_count = 0;
+    if (!ReadU32(in, record_count) || record_count > 100000) {
+        err = "invalid profile record dictionary";
+        return false;
+    }
+    std::vector<uint16_t> types(record_count);
+    std::vector<std::vector<uint8_t>> records(record_count);
+    for (uint32_t i = 0; i < record_count; ++i) {
+        uint32_t size = 0;
+        if (!ReadU16(in, types[i]) || !ReadU32(in, size) || size > 1024 * 1024) {
+            err = "invalid profile record entry";
+            return false;
+        }
+        records[i].resize(size);
+        if (size && !ReadBytes(in, records[i].data(), size)) {
+            err = "truncated profile record entry";
+            return false;
+        }
+    }
+
+    uint32_t profile_count = 0;
+    if (!ReadU32(in, profile_count) || profile_count > 100000) {
+        err = "invalid profile count";
+        return false;
+    }
+
+    struct ProfileEntry {
+        std::string model;
+        std::vector<uint32_t> indices;
+    };
+    std::vector<ProfileEntry> entries;
+    entries.reserve(profile_count);
+    for (uint32_t i = 0; i < profile_count; ++i) {
+        uint16_t model_len = 0, package_len = 0;
+        if (!ReadU16(in, model_len) || model_len > 256) {
+            err = "invalid profile model name";
+            return false;
+        }
+        ProfileEntry entry;
+        entry.model.resize(model_len);
+        if (model_len && !ReadBytes(in, entry.model.data(), model_len)) return false;
+        if (!ReadU16(in, package_len) || package_len > 256) {
+            err = "invalid profile package name";
+            return false;
+        }
+        in.seekg(static_cast<std::streamoff>(package_len), std::ios::cur);
+        if (!in) return false;
+        char header[800];
+        if (!ReadBytes(in, header, sizeof(header))) return false;
+        uint32_t count = 0;
+        if (!ReadU32(in, count) || count > record_count) {
+            err = "invalid profile record count";
+            return false;
+        }
+        entry.indices.resize(count);
+        for (uint32_t& index : entry.indices) {
+            if (!ReadU32(in, index) || index >= record_count) {
+                err = "invalid profile record index";
+                return false;
+            }
+        }
+        entries.push_back(std::move(entry));
+    }
+
+    auto upper = [](std::string s) {
+        for (char& c : s)
+            if (c >= 'a' && c <= 'z') c = char(c - 'a' + 'A');
+        return s;
+    };
+    const std::string wanted = upper(model);
+    std::string alias;
+    if (wanted.size() == 12 && wanted.compare(10, 2, "AN") == 0) {
+        alias = wanted.substr(0, 10) + "BN";
+    } else if (wanted.size() == 12 && wanted.compare(10, 2, "BN") == 0) {
+        alias = wanted.substr(0, 10) + "AN";
+    }
+
+    std::vector<uint32_t> selected;
+    bool any_match = false;
+    for (const auto& entry : entries) {
+        const std::string profile_model = upper(entry.model);
+        if (!wanted.empty() && (profile_model == wanted || profile_model == alias)) {
+            any_match = true;
+            selected.insert(selected.end(), entry.indices.begin(), entry.indices.end());
+        }
+    }
+    if (!any_match) {
+        for (const auto& entry : entries)
+            selected.insert(selected.end(), entry.indices.begin(), entry.indices.end());
+    }
+
+    std::map<uint64_t, ReadRequest> merged;
+    for (uint32_t index : selected) {
+        const auto& raw = records[index];
+        if (raw.size() < 8) continue;
+        const uint32_t id = (uint32_t(raw[0]) << 24) | (uint32_t(raw[1]) << 16) |
+                            (uint32_t(raw[2]) << 8) | raw[3];
+        const uint16_t len = static_cast<uint16_t>(raw.size() - 6);
+        if (!len) continue;
+        const uint64_t key = (uint64_t(types[index]) << 32) | id;
+        auto it = merged.find(key);
+        if (it == merged.end()) {
+            ReadRequest req;
+            req.part = types[index];
+            req.tag = static_cast<uint16_t>(id >> 16);
+            req.inst = static_cast<uint16_t>(id & 0xFFFF);
+            req.len = len;
+            merged.emplace(key, req);
+        } else if (len > it->second.len) {
+            it->second.len = len;
+        }
+    }
+
+    out.reserve(merged.size());
+    for (const auto& kv : merged) out.push_back(kv.second);
+    std::sort(out.begin(), out.end(), [](const ReadRequest& a, const ReadRequest& b) {
+        if (a.part != b.part) return a.part < b.part;
+        if (a.tag != b.tag) return a.tag < b.tag;
+        return a.inst < b.inst;
+    });
+    return true;
 }
 
 }  // namespace opendepot

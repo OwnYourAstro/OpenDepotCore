@@ -1,0 +1,1933 @@
+{
+  "baseTags": [
+    "0x000A",
+    "0x000B",
+    "0x000C",
+    "0x000D",
+    "0x0014",
+    "0x0016",
+    "0x0018",
+    "0x0019",
+    "0x001B",
+    "0x0020",
+    "0x0026",
+    "0x0027",
+    "0x0028",
+    "0x0029",
+    "0x002A",
+    "0x002C",
+    "0x002D",
+    "0x002F",
+    "0x0030",
+    "0x0031",
+    "0x0032",
+    "0x0033",
+    "0x0034",
+    "0x0040",
+    "0x0047",
+    "0x0048",
+    "0x0049",
+    "0x004A",
+    "0x004B",
+    "0x004C",
+    "0x004F",
+    "0x0050",
+    "0x0051",
+    "0x0054",
+    "0x0057",
+    "0x0058",
+    "0x0059",
+    "0x005A",
+    "0x005B",
+    "0x005F",
+    "0x0064",
+    "0x0065",
+    "0x006C",
+    "0x006E",
+    "0x0070",
+    "0x0071",
+    "0x0073",
+    "0x0074",
+    "0x0075",
+    "0x0FA1",
+    "0x0FA6",
+    "0x0FAA",
+    "0x0FAB",
+    "0x0FAC",
+    "0x0FAD",
+    "0x0FAE",
+    "0x0FAF",
+    "0x0FB0",
+    "0x0FB1",
+    "0x0FB2",
+    "0x0FB3",
+    "0x0FB4",
+    "0x0FB5",
+    "0x0FBC",
+    "0x0FBD",
+    "0x0FBE",
+    "0x0FC1",
+    "0x0FC2",
+    "0x0FC7",
+    "0x0FC8",
+    "0x0FC9",
+    "0x0FCA",
+    "0x0FCB",
+    "0x0FCC",
+    "0x0FCD",
+    "0x0FCE",
+    "0x0FCF",
+    "0x0FF0",
+    "0x0FF1",
+    "0x0FF2",
+    "0x0FF3",
+    "0x0FF4",
+    "0x0FF5",
+    "0x0FF6",
+    "0x0FF7",
+    "0x0FF8",
+    "0x0FF9",
+    "0x0FFA",
+    "0x0FFB",
+    "0x0FFC",
+    "0x0FFD",
+    "0x0FFE",
+    "0x0FFF",
+    "0x1004",
+    "0x1005",
+    "0x1006"
+  ],
+  "capacitySource": "ModelReadRequests",
+  "model": "H46UCF9PW6BN",
+  "option": "P25_MDC_Conv_Data",
+  "records": {
+    "0x000A": {
+      "block": "Radio Wide",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 160
+      },
+      "fieldCount": 201,
+      "instances": [
+        0
+      ],
+      "maxLen": 158,
+      "minLen": 158,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x000B": {
+      "block": "Display & Menu",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 18
+      },
+      "fieldCount": 26,
+      "instances": [
+        0
+      ],
+      "maxLen": 16,
+      "minLen": 16,
+      "sections": [
+        "display_menu"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x000C": {
+      "block": "Dynamic Radio Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 276
+      },
+      "fieldCount": 112,
+      "instances": [
+        0
+      ],
+      "maxLen": 274,
+      "minLen": 274,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x000D": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "zone_channel_assignment"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0014": {
+      "block": "ISH Conventional Switch Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 34
+      },
+      "fieldCount": 22,
+      "instances": [
+        0
+      ],
+      "maxLen": 32,
+      "minLen": 32,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0016": {
+      "block": "Cnv Menu Item Blk",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 13
+      },
+      "fieldCount": 28,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0018": {
+      "block": "Global Button Config List",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 7
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 5,
+      "minLen": 5,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0019": {
+      "block": "Conventional Button Config List",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 7
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 5,
+      "minLen": 5,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x001B": {
+      "block": "Hardware Button Configuration Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 108
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 106,
+      "minLen": 106,
+      "sections": [
+        "controls"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0020": {
+      "block": "Ish Portable Conventional Button Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 24
+      },
+      "fieldCount": 1,
+      "instances": [
+        0
+      ],
+      "maxLen": 22,
+      "minLen": 22,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0026": {
+      "block": "Conventional Configuration",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "display_menu"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0027": {
+      "block": "Test Mode Personality Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 65
+      },
+      "fieldCount": 2,
+      "instances": [
+        0
+      ],
+      "maxLen": 63,
+      "minLen": 63,
+      "sections": [
+        "display_menu"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0028": {
+      "block": "Test Mode Personalitty Float Data Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 11
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 9,
+      "minLen": 9,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0029": {
+      "block": "Test Channel Table Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 82
+      },
+      "fieldCount": 20,
+      "instances": [
+        0
+      ],
+      "maxLen": 80,
+      "minLen": 80,
+      "sections": [
+        "narrow_band_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x002A": {
+      "block": "Astro Peripheral Data Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 7
+      },
+      "fieldCount": 6,
+      "instances": [
+        0
+      ],
+      "maxLen": 5,
+      "minLen": 5,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x002C": {
+      "block": "Astro Radio Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 47
+      },
+      "fieldCount": 30,
+      "instances": [
+        0
+      ],
+      "maxLen": 45,
+      "minLen": 45,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x002D": {
+      "block": "Astro dynamic Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 35
+      },
+      "fieldCount": 80,
+      "instances": [
+        0
+      ],
+      "maxLen": 33,
+      "minLen": 33,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x002F": {
+      "block": "Factory Overrides DSP Clock Shifts Block Pointer",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "vrs_ep"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0030": {
+      "block": "Factory Overrides Host Clock Shifts Block Pointer",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "vrs_ep"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0031": {
+      "block": "FGU RxSynthesizer Block Pointer",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "vrs_ep"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0032": {
+      "block": "Factory Overrides Secure Clock Shifts Block Pointer",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "vrs_ep"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0033": {
+      "block": "FGU Tx Synthesizer Block Pointer",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "vrs_ep"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0034": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 18
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 16,
+      "minLen": 16,
+      "sections": [
+        "secure"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0040": {
+      "block": "Test Personality Cnv Channel Data",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 26
+      },
+      "fieldCount": 1,
+      "instances": [
+        0
+      ],
+      "maxLen": 24,
+      "minLen": 24,
+      "sections": [
+        "conventional_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0047": {
+      "block": "External Radio Blk",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 46
+      },
+      "fieldCount": 2,
+      "instances": [
+        0
+      ],
+      "maxLen": 44,
+      "minLen": 44,
+      "sections": [
+        "codeplug_directory"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0048": {
+      "block": "ID Disp List Vector",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0049": {
+      "block": "Phone Number List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 33
+      },
+      "fieldCount": 3,
+      "instances": [
+        0
+      ],
+      "maxLen": 31,
+      "minLen": 31,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x004A": {
+      "block": "Phone Number Text List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x004B": {
+      "block": "Second LO Injection Default Freq Blk",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x004C": {
+      "block": "Astro System Call List Alias List",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 41,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "scan_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x004F": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "scan_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0050": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "conventional_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0051": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 35
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 33,
+      "minLen": 33,
+      "sections": [
+        "passcode"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0054": {
+      "block": "NAT Entry",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 18
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 16,
+      "minLen": 16,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0057": {
+      "block": "DTMF Codes List Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "secure"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0058": {
+      "block": "Mdc Status Alias Distributed List Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 15
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 13,
+      "minLen": 13,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0059": {
+      "block": "Sts Alias Text Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 282
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 280,
+      "minLen": 280,
+      "sections": [
+        "status_alias"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x005A": {
+      "block": "Mdc Message Alias Distributed List Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x005B": {
+      "block": "Msg Alias Text blk",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 282
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 280,
+      "minLen": 280,
+      "sections": [
+        "message_alias"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x005F": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0064": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 17
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 15,
+      "minLen": 15,
+      "sections": [
+        "mpl"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0065": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "mpl"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x006C": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "scan_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x006E": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "scan_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0070": {
+      "block": "Data User List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0071": {
+      "block": "Quick Text Message Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0073": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 49
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 47,
+      "minLen": 47,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0074": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 34
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 32,
+      "minLen": 32,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0075": {
+      "block": "Trunking APCO Inter WACN Dyn Chan Id Distributed List Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FA1": {
+      "block": "",
+      "capacity": {
+        "instances": 4,
+        "maxLen": 248
+      },
+      "fieldCount": 0,
+      "instances": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "maxLen": 246,
+      "minLen": 246,
+      "sections": [
+        "scan_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FA6": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 15
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 13,
+      "minLen": 13,
+      "sections": [
+        "scan_config"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAA": {
+      "block": "Quick Text Message Entry",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 59
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 57,
+      "minLen": 57,
+      "sections": [
+        "message_alias"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAB": {
+      "block": "Data User List Entry",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 49
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 47,
+      "minLen": 47,
+      "sections": [
+        "radio_wide"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAC": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAD": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAE": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 13
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 11,
+      "minLen": 11,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FAF": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 18
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 16,
+      "minLen": 16,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB0": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB1": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB2": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "singletone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB3": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 23
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 21,
+      "minLen": 21,
+      "sections": [
+        "singletone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB4": {
+      "block": "",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 15
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 13,
+      "minLen": 13,
+      "sections": [
+        "mdc"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FB5": {
+      "block": "",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 20
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 18,
+      "minLen": 18,
+      "sections": [
+        "mdc"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FBC": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 23
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 21,
+      "minLen": 21,
+      "sections": [
+        "mpl"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FBD": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "mpl"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FBE": {
+      "block": "",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 5
+      },
+      "fieldCount": 43,
+      "instances": [
+        0
+      ],
+      "maxLen": 3,
+      "minLen": 3,
+      "sections": [
+        "conventional_personality"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FC1": {
+      "block": "Message Alias Table",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 24
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 22,
+      "minLen": 22,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FC2": {
+      "block": "Status Alias Table",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 24
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 22,
+      "minLen": 22,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FC7": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 2,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FC8": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 4,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FC9": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 10
+      },
+      "fieldCount": 21,
+      "instances": [
+        0
+      ],
+      "maxLen": 8,
+      "minLen": 8,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCA": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 21
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 19,
+      "minLen": 19,
+      "sections": [
+        "dtmf"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCB": {
+      "block": "",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 17
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 15,
+      "minLen": 15,
+      "sections": [
+        "quik_call"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCC": {
+      "block": "MDC System",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 35
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 33,
+      "minLen": 33,
+      "sections": [
+        "quik_call"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCD": {
+      "block": "Conventional Personality Floating Block",
+      "capacity": {
+        "instances": 16,
+        "maxLen": 12
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "conventional_personality"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCE": {
+      "block": "Phone List Text Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FCF": {
+      "block": "Phone Number Table",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 26
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 24,
+      "minLen": 24,
+      "sections": [
+        "phone"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF0": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 53
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 51,
+      "minLen": 51,
+      "sections": [
+        "test_channel_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF1": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 32
+      },
+      "fieldCount": 42,
+      "instances": [
+        0
+      ],
+      "maxLen": 30,
+      "minLen": 30,
+      "sections": [
+        "test_channel_list"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF2": {
+      "block": "Astro Talkgroup ID Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 13
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 11,
+      "minLen": 11,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF3": {
+      "block": "Astro Talkgroup ID List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF4": {
+      "block": "Astro Call ID Text Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 25
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF5": {
+      "block": "Astro System Call ID Text List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF6": {
+      "block": "List",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 12
+      },
+      "fieldCount": 8,
+      "instances": [
+        0
+      ],
+      "maxLen": 10,
+      "minLen": 10,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF7": {
+      "block": "Astro System Call ID List Distributed Header",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 26
+      },
+      "fieldCount": 4,
+      "instances": [
+        0
+      ],
+      "maxLen": 24,
+      "minLen": 24,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF8": {
+      "block": "Astro Talkgroup Alias Text Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 27
+      },
+      "fieldCount": 6,
+      "instances": [
+        0
+      ],
+      "maxLen": 25,
+      "minLen": 25,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FF9": {
+      "block": "Astro Emergency Block",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 16
+      },
+      "fieldCount": 95,
+      "instances": [
+        0
+      ],
+      "maxLen": 14,
+      "minLen": 14,
+      "sections": [
+        "astro_systems"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFA": {
+      "block": "Astro Systems Block",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 62
+      },
+      "fieldCount": 2,
+      "instances": [
+        0
+      ],
+      "maxLen": 60,
+      "minLen": 60,
+      "sections": [
+        "conventional_personality"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFB": {
+      "block": "Conventional Personality",
+      "capacity": {
+        "instances": 16,
+        "maxLen": 77
+      },
+      "fieldCount": 112,
+      "instances": [
+        0
+      ],
+      "maxLen": 75,
+      "minLen": 75,
+      "sections": [
+        "conventional_personality"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFC": {
+      "block": "Zone Channel Assignment Dist Header Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 17
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 15,
+      "minLen": 15,
+      "sections": [
+        "zone_channel_assignment"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFD": {
+      "block": "Zone Channel Assignment",
+      "capacity": {
+        "instances": 2,
+        "maxLen": 358
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 41,
+      "minLen": 41,
+      "sections": [
+        "zone_channel_assignment"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFE": {
+      "block": "Channel Text Header Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 14
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 12,
+      "minLen": 12,
+      "sections": [
+        "zone_channel_assignment"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x0FFF": {
+      "block": "Channel Text Block",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 280
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 23,
+      "minLen": 23,
+      "sections": [
+        "zone_channel_assignment"
+      ],
+      "types": [
+        128
+      ]
+    },
+    "0x1004": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 70
+      },
+      "fieldCount": 15,
+      "instances": [
+        0
+      ],
+      "maxLen": 68,
+      "minLen": 68,
+      "sections": [
+        "radio_information"
+      ],
+      "types": [
+        129
+      ]
+    },
+    "0x1005": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 45
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 43,
+      "minLen": 43,
+      "sections": [
+        "radio_information"
+      ],
+      "types": [
+        129
+      ]
+    },
+    "0x1006": {
+      "block": "",
+      "capacity": {
+        "instances": 1,
+        "maxLen": 26
+      },
+      "fieldCount": 0,
+      "instances": [
+        0
+      ],
+      "maxLen": 24,
+      "minLen": 24,
+      "sections": [
+        "radio_information"
+      ],
+      "types": [
+        129
+      ]
+    }
+  },
+  "sectionSource": "CodeplugModel (not authoritative yet)"
+}

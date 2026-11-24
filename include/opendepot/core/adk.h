@@ -148,6 +148,9 @@ struct ReadRequest {
     uint16_t len = 0;
 };
 void BuiltinReadRequests(std::vector<ReadRequest>& out);
+// Probe-only (partition, tag) entries for a model-agnostic deep scan. Existing
+// tags are then read with ReadAllTypeInstances; missing tags are skipped.
+void AppendTypeScan(std::vector<ReadRequest>& out);
 // Complete (partition, tag, instance, length) set for hardware-validated
 // models; empty for models without a validated set.
 void ModelReadRequests(const std::string& model, std::vector<ReadRequest>& out);

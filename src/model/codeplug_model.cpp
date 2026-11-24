@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: MIT
 
 #include "opendepot/core/model.h"
+#include "opendepot/core/block_map.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
 #include <cstring>
+#include <map>
+#include <set>
 
 namespace opendepot {
 namespace {
@@ -92,29 +95,29 @@ const std::vector<SectionDef>& SectionDefs() {
          {0x000A, 0x000B, 0x000C, 0x0014, 0x0016, 0x0018, 0x0019, 0x0020, 0x0028, 0x002A,
           0x002C, 0x002D, 0x0048, 0x0058, 0x0070, 0x0071, 0x0FAB}},
         {"test_channel_list", "Radio Configuration", "Test Channel List", Confidence::unknown,
-         {0x0FF0, 0x0FF1}},
+         {0x0FF0, 0x0FF1, 0x0029}},
         {"narrow_band_list", "Radio Configuration",
          "Narrow Bandwidth 12.5 kHz Only Frequency Range List", Confidence::inferred, {0x0029}},
         {"vrs_ep", "Radio Configuration", "Radio Wide VRS-EP Mode Steering", Confidence::unknown,
          {0x002F, 0x0030, 0x0031, 0x0032, 0x0033}},
         {"controls", "Radio Configuration", "Controls", Confidence::inferred, {0x001B}},
         {"display_menu", "Radio Configuration", "Display & Menu", Confidence::inferred,
-         {0x0026, 0x0027}},
+         {0x0026, 0x0027, 0x000B}},
         {"phone", "Radio Configuration", "Phone", Confidence::inferred,
          {0x0049, 0x004A, 0x004B, 0x005A, 0x0FCE, 0x0FCF}},
         {"secure", "Radio Configuration", "Secure", Confidence::unknown, {0x0034, 0x0057}},
         {"trunking_config", "Trunking", "Trunking Configuration", Confidence::inferred,
-         {0x0015, 0x0017, 0x001A, 0x0021, 0x0022, 0x0023, 0x0F9F, 0x0FA0}},
+         {0x0015, 0x0017, 0x001A, 0x0022, 0x0023, 0x0F9F, 0x0FA0}},
         {"trunking_system", "Trunking", "Trunking System", Confidence::verified,
-         {0x003A, 0x003B, 0x003C, 0x003D, 0x003E, 0x003F, 0x0FE6}},
+         {0x003A, 0x003B, 0x003C, 0x003D, 0x003E, 0x003F, 0x0FD0, 0x0FE5, 0x0FE6, 0x0FE7}},
         {"trunking_personality", "Trunking", "Trunking Personality", Confidence::inferred,
-         {0x0052, 0x0053, 0x0FA8, 0x0FA9, 0x0FC6, 0x0FD0, 0x0FD1}},
+         {0x0052, 0x0053, 0x0FA8, 0x0FA9, 0x0FC6, 0x0FD1, 0x0FD5, 0x0FE3, 0x0FE4}},
         {"talkgroup", "Trunking", "Talkgroup", Confidence::inferred,
-         {0x0FD2, 0x0FD3, 0x0FD4, 0x0FD5, 0x0FD6, 0x0FD7, 0x0FD8, 0x0FD9, 0x0FDA, 0x0FDB,
-          0x0FDC, 0x0FDD, 0x0FDE, 0x0FDF, 0x0FE0, 0x0FE1, 0x0FE2, 0x0FE3, 0x0FE4, 0x0FE5,
-          0x0FE7, 0x0FE8, 0x0FE9, 0x0FEA, 0x0FEB, 0x0FEC, 0x0FED, 0x0FEE, 0x0FEF}},
+         {0x0FD2, 0x0FD3, 0x0FD4, 0x0FD6, 0x0FD7, 0x0FD8, 0x0FD9, 0x0FDA, 0x0FDB,
+          0x0FDC, 0x0FDD, 0x0FDE, 0x0FDF, 0x0FE0, 0x0FE1, 0x0FE2,
+          0x0FE8, 0x0FE9, 0x0FEA, 0x0FEB, 0x0FEC, 0x0FED, 0x0FEE, 0x0FEF}},
         {"conventional_config", "Conventional", "Conventional Configuration",
-         Confidence::inferred, {0x0040, 0x0050}},
+         Confidence::inferred, {0x0021, 0x0040, 0x0050}},
         {"mpl", "Conventional", "MPL", Confidence::inferred,
          {0x0064, 0x0065, 0x0FBC, 0x0FBD}},
         {"conventional_personality", "Conventional", "Conventional Personality",
@@ -431,12 +434,31 @@ void CodeplugModel::Decode() {
         }
         if (!s.records.empty()) sections_.push_back(std::move(s));
     }
+    // Records whose tag is not in the fixed CPS section table still belong to a
+    // verified CPS block. Group them by block name instead of hiding them in a
+    // single "Other" bucket, so every codeplug gets per-block panels.
+    std::map<std::string, std::vector<uint32_t>> byBlock;
     std::vector<uint32_t> other;
     for (auto& n : recordNodes_) {
-        if (n.section.empty()) {
+        if (!n.section.empty()) continue;
+        const char* block = BlockNameForTag(n.tag);
+        if (block && *block) {
+            const std::string id = std::string("block:") + block;
+            n.section = id;
+            byBlock[block].push_back(n.id);
+        } else {
             n.section = "other";
             other.push_back(n.id);
         }
+    }
+    for (auto& kv : byBlock) {
+        CodeplugSection s;
+        s.id = "block:" + kv.first;
+        s.group = "CPS Blocks";
+        s.name = kv.first;
+        s.confidence = Confidence::inferred;
+        s.records = std::move(kv.second);
+        sections_.push_back(std::move(s));
     }
     if (!other.empty()) {
         CodeplugSection s;
@@ -482,6 +504,226 @@ bool CodeplugModel::LocateChannel(int zone, int channel, uint16_t& pageTag, uint
         }
     }
     return false;
+}
+
+bool CodeplugModel::AddChannel(int zone, const std::string& name, double rxMHz, double txMHz,
+                               int* newIndex) {
+    if (newIndex) *newIndex = -1;
+    if (zone < 0 || zone >= int(zones_.size())) return false;
+    const Codeplug backup = cp_;
+    auto fail = [&]() {
+        cp_ = backup;
+        std::string ignored;
+        Reload(ignored);
+        return false;
+    };
+
+    // Channel-name table for this zone.
+    Record* zref = FindRecord(cp_, 0x0FFE, uint16_t(zone));
+    if (!zref) return fail();
+    auto zp = RecordPayload(*zref);
+    if (zp.size() < 12) return fail();
+    const uint16_t namesTag = BE16(&zp[8]);
+    const uint16_t namesInst = BE16(&zp[10]);
+    Record* names = FindRecord(cp_, namesTag, namesInst);
+    if (!names) return fail();
+    auto np = RecordPayload(*names);
+    if (np.size() < 6) return fail();
+    const int nameCount = BE16(&np[4]);
+    if (nameCount < 0 || nameCount > 1024) return fail();
+
+    // Zone channel pages. H46 uses up to 10 entries per 35-byte page and a
+    // 0xFFC header that points at the first page.
+    Record* cref = FindRecord(cp_, 0x0FFC, uint16_t(zone));
+    if (!cref) return fail();
+    auto cpld = RecordPayload(*cref);
+    if (cpld.size() < 12) return fail();
+    const uint16_t pageTag = BE16(&cpld[8]);
+    const uint16_t firstPage = BE16(&cpld[10]);
+    std::vector<uint16_t> pages;
+    for (uint16_t page = firstPage; page <= uint16_t(firstPage + 1); ++page)
+        if (FindRecord(cp_, pageTag, page)) pages.push_back(page);
+    if (pages.empty()) return fail();
+
+    constexpr int kPageCapacity = 10;
+    uint16_t target = pages.back();
+    Record* targetRec = FindRecord(cp_, pageTag, target);
+    if (!targetRec) return fail();
+    auto tp = RecordPayload(*targetRec);
+    if (tp.size() < 6) return fail();
+    int count = BE16(&tp[4]);
+    bool newPage = false;
+    if (count >= kPageCapacity) {
+        if (pages.size() >= 2 || target >= uint16_t(firstPage + 1)) return fail();
+        target = uint16_t(target + 1);
+        targetRec = nullptr;
+        tp.assign(6, 0);
+        count = 0;
+        newPage = true;
+    }
+
+    // Template channel entry/personality from the last existing channel.
+    std::array<uint8_t, 35> entry{};
+    Record* srcPage = FindRecord(cp_, pageTag, pages.back());
+    if (srcPage) {
+        auto sp = RecordPayload(*srcPage);
+        const int srcCount = sp.size() >= 6 ? BE16(&sp[4]) : 0;
+        if (srcCount > 0 && sp.size() >= 6 + size_t(srcCount) * 35) {
+            const size_t o = 6 + size_t(srcCount - 1) * 35;
+            std::copy(sp.begin() + static_cast<std::ptrdiff_t>(o),
+                      sp.begin() + static_cast<std::ptrdiff_t>(o + 35), entry.begin());
+        }
+    }
+    if (BE16(entry.data()) != 0x0FFB) {
+        std::fill(entry.begin(), entry.end(), 0);
+        entry[0] = 0x0F;
+        entry[1] = 0xFB;
+    }
+
+    uint16_t newChannelId = 0;
+    for (const auto& r : cp_.records)
+        if (uint16_t(r.id >> 16) == 0x0FFB)
+            newChannelId = std::max(newChannelId, uint16_t((r.id & 0xFFFF) + 1));
+    if (newChannelId == 0xFFFF) return fail();
+    uint16_t channelCapacity = 20;
+    std::vector<ReadRequest> readSet;
+    ModelReadRequests(cp_.header.model, readSet);
+    if (!readSet.empty()) {
+        std::set<uint16_t> personalityInstances;
+        for (const auto& r : readSet)
+            if (r.tag == 0x0FFB) personalityInstances.insert(r.inst);
+        if (!personalityInstances.empty())
+            channelCapacity = uint16_t(personalityInstances.size());
+    }
+    if (newChannelId >= channelCapacity) return fail();
+
+    auto mhzWord = [](double mhz) {
+        return static_cast<uint32_t>(std::llround(mhz * 1e6 / 5.0));
+    };
+    entry[0] = 0x0F;
+    entry[1] = 0xFB;
+    entry[2] = uint8_t(newChannelId >> 8);
+    entry[3] = uint8_t(newChannelId);
+    const uint32_t rxWord = mhzWord(rxMHz);
+    const uint32_t txWord = mhzWord(txMHz);
+    entry[12] = uint8_t(rxWord >> 24);
+    entry[13] = uint8_t(rxWord >> 16);
+    entry[14] = uint8_t(rxWord >> 8);
+    entry[15] = uint8_t(rxWord);
+    entry[16] = uint8_t(txWord >> 24);
+    entry[17] = uint8_t(txWord >> 16);
+    entry[18] = uint8_t(txWord >> 8);
+    entry[19] = uint8_t(txWord);
+    entry[20] = entry[16];
+    entry[21] = entry[17];
+    entry[22] = entry[18];
+    entry[23] = entry[19];
+
+    // Append the channel entry to the target page.
+    const size_t pageNeed = 6 + size_t(count + 1) * 35;
+    if (tp.size() < pageNeed) tp.resize(pageNeed);
+    PutBE16(tp, 4, uint16_t(count + 1));
+    std::copy(entry.begin(), entry.end(), tp.begin() + static_cast<std::ptrdiff_t>(6 + size_t(count) * 35));
+
+    if (newPage) {
+        // Link the previous page to the new one, matching a two-page zone.
+        Record* prev = FindRecord(cp_, pageTag, pages.back());
+        if (!prev) return fail();
+        auto pp = RecordPayload(*prev);
+        if (pp.size() < 4) return fail();
+        pp[0] = uint8_t(pageTag >> 8);
+        pp[1] = uint8_t(pageTag);
+        pp[2] = uint8_t(target >> 8);
+        pp[3] = uint8_t(target);
+        if (!SetItemPayload(cp_, pageTag, pages.back(), pp)) return fail();
+        Record rec;
+        rec.id = (uint32_t(pageTag) << 16) | target;
+        rec.type = 0x0080;
+        rec.raw.assign(6 + tp.size() + 2, 0);
+        rec.raw[0] = uint8_t(rec.id >> 24);
+        rec.raw[1] = uint8_t(rec.id >> 16);
+        rec.raw[2] = uint8_t(rec.id >> 8);
+        rec.raw[3] = uint8_t(rec.id);
+        const uint16_t pageLen = uint16_t(tp.size() + 2);
+        rec.raw[4] = uint8_t(pageLen >> 8);
+        rec.raw[5] = uint8_t(pageLen);
+        std::copy(tp.begin(), tp.end(), rec.raw.begin() + 6);
+        const uint16_t crc = Crc16Ccitt(tp.data(), tp.size());
+        rec.raw[rec.raw.size() - 2] = uint8_t(crc >> 8);
+        rec.raw[rec.raw.size() - 1] = uint8_t(crc);
+        rec.checksum = crc;
+        rec.verified = true;
+        cp_.records.push_back(std::move(rec));
+    } else if (!SetItemPayload(cp_, pageTag, target, tp)) {
+        return fail();
+    }
+
+    // Append the channel name and bump the name count.
+    const size_t nameOff = 6 + size_t(nameCount) * 17;
+    if (np.size() < nameOff + 17) np.resize(nameOff + 17);
+    PutBE16(np, 4, uint16_t(nameCount + 1));
+    WriteName(np.data() + nameOff, 16, name);
+    if (!SetItemPayload(cp_, namesTag, namesInst, np)) return fail();
+
+    // Create the per-channel personality records, cloning the last one.
+    Record* persTemplate = nullptr;
+    Record* astroTemplate = nullptr;
+    for (auto& r : cp_.records) {
+        const uint16_t tag = uint16_t(r.id >> 16);
+        if (tag == 0x0FFB) persTemplate = &r;
+        if (tag == 0x0FCD) astroTemplate = &r;
+    }
+    if (!persTemplate) return fail();
+    auto pers = RecordPayload(*persTemplate);
+    if (pers.size() < 5) return fail();
+    pers[1] = 0x0F;
+    pers[2] = 0xCD;
+    pers[3] = uint8_t(newChannelId >> 8);
+    pers[4] = uint8_t(newChannelId);
+    auto addRecord = [&](uint16_t tag, uint16_t inst, const std::vector<uint8_t>& payload) {
+        Record rec;
+        rec.id = (uint32_t(tag) << 16) | inst;
+        rec.type = 0x0080;
+        rec.raw.assign(6 + payload.size() + 2, 0);
+        rec.raw[0] = uint8_t(rec.id >> 24);
+        rec.raw[1] = uint8_t(rec.id >> 16);
+        rec.raw[2] = uint8_t(rec.id >> 8);
+        rec.raw[3] = uint8_t(rec.id);
+        const uint16_t len = uint16_t(payload.size() + 2);
+        rec.raw[4] = uint8_t(len >> 8);
+        rec.raw[5] = uint8_t(len);
+        std::copy(payload.begin(), payload.end(), rec.raw.begin() + 6);
+        const uint16_t crc = Crc16Ccitt(payload.data(), payload.size());
+        rec.raw[rec.raw.size() - 2] = uint8_t(crc >> 8);
+        rec.raw[rec.raw.size() - 1] = uint8_t(crc);
+        rec.checksum = crc;
+        rec.verified = true;
+        cp_.records.push_back(std::move(rec));
+    };
+    addRecord(0x0FFB, newChannelId, pers);
+    if (astroTemplate) {
+        const auto astro = RecordPayload(*astroTemplate);
+        addRecord(0x0FCD, newChannelId, astro);
+    }
+
+    if (newPage) {
+        // The real 16-channel, two-page codeplug carries one copy of each of
+        // these page-scoped records per channel page.
+        static const uint16_t kPageScoped[] = {0x0FB4, 0x0FB5, 0x0FBE, 0x0FCB,
+                                               0x0FCC, 0x0FF9, 0x0FFA};
+        for (uint16_t tag : kPageScoped) {
+            const Record* tmpl = nullptr;
+            for (const auto& r : cp_.records)
+                if (uint16_t(r.id >> 16) == tag) tmpl = &r;
+            if (tmpl) addRecord(tag, target, RecordPayload(*tmpl));
+        }
+    }
+
+    std::string err;
+    if (!Reload(err)) return fail();
+    if (zone >= int(zones_.size()) || zones_[zone].channels.empty()) return fail();
+    if (newIndex) *newIndex = int(zones_[zone].channels.size()) - 1;
+    return true;
 }
 
 bool CodeplugModel::SetZoneName(int zone, const std::string& name) {

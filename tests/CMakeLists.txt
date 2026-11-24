@@ -23,6 +23,29 @@ add_test(NAME cfb_xts2500
 add_test(NAME cfb_xts5000
     COMMAND opendepot_cfb_test ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts5000-800.cpg)
 
+if(TARGET opendepot_c)
+    add_executable(opendepot_capi_test capi_test.cpp)
+    target_link_libraries(opendepot_capi_test PRIVATE opendepot_c)
+    set(OPENDEPOT_TEST_PROFILE_DB
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../OpenDepot/data/depot_profiles.bin")
+    if(EXISTS "${OPENDEPOT_TEST_PROFILE_DB}")
+        add_test(NAME capi
+            COMMAND opendepot_capi_test
+                ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg
+                ${OPENDEPOT_TEST_PROFILE_DB})
+    else()
+        add_test(NAME capi
+            COMMAND opendepot_capi_test
+                ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/xts2500-800.cpg)
+    endif()
+endif()
+
+add_executable(opendepot_conventional_test conventional_test.cpp)
+target_link_libraries(opendepot_conventional_test PRIVATE opendepot_core)
+add_test(NAME conventional
+    COMMAND opendepot_conventional_test
+        ${CMAKE_CURRENT_SOURCE_DIR}/fixtures/h46-conv-clean.cpg)
+
 add_executable(opendepot_validate_test validate_test.cpp)
 target_link_libraries(opendepot_validate_test PRIVATE opendepot_core)
 add_test(NAME validate

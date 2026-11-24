@@ -153,6 +153,10 @@ public:
     // decoded model on success.
     bool SetZoneName(int zone, const std::string& name);
     bool SetChannelName(int zone, int channel, const std::string& name);
+    // Adds a channel to an existing zone, cloning the last channel/personality
+    // defaults and updating the zone page and channel-name table.
+    bool AddChannel(int zone, const std::string& name, double rxMHz, double txMHz,
+                    int* newIndex = nullptr);
     bool SetChannelFrequency(int zone, int channel, double rxMHz, double txMHz);
     bool SetChannelSquelch(int zone, int channel, int rx, int tx);
     bool SetChannelFlags(int zone, int channel, int flags);

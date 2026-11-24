@@ -40,6 +40,36 @@ typedef enum od_status {
 /* Releases strings returned through char** out-parameters. NULL is a no-op. */
 void od_free_string(char* s);
 
+/* -------------------------------------------------------------- codeplug */
+
+typedef struct od_codeplug od_codeplug;
+
+/* Opens a .cpg. Returns NULL on failure and optionally sets *err. */
+od_codeplug* od_codeplug_open(const char* path, char** err);
+void od_codeplug_close(od_codeplug* cp);
+int od_codeplug_save(od_codeplug* cp, const char* path, char** err);
+
+/* Heap JSON strings; release with od_free_string. */
+char* od_codeplug_report_json(od_codeplug* cp);
+char* od_codeplug_model_json(od_codeplug* cp);
+char* od_codeplug_flashcode(od_codeplug* cp);
+
+/* Returns 1 when the codeplug is safe for a radio write, else 0 and a message. */
+int od_codeplug_validate_radio(od_codeplug* cp, char** message);
+
+/* ------------------------------------------------------------- catalogs */
+
+char* od_list_depot_profiles_json(const char* database_path, char** err);
+char* od_list_models_json(void);
+char* od_list_packages_json(const char* model);
+char* od_list_addons_json(const char* model);
+
+/* Creates a codeplug from a native profile (empty package picks the first
+ * profile for the model) and writes it to out_path. */
+int od_create_from_profile(const char* database_path, const char* model, const char* package,
+                           const char* serial, const char* flashcode, const char* out_path,
+                           char** err);
+
 #ifdef __cplusplus
 }  /* extern "C" */
 #endif

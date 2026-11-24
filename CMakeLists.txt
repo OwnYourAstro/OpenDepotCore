@@ -37,6 +37,7 @@ add_library(opendepot_core
     src/model/codeplug_model.cpp
     src/model/field_catalog.cpp
     src/model/block_map.cpp
+    src/radio/rcmp_session.cpp
 )
 add_library(OpenDepot::Core ALIAS opendepot_core)
 
@@ -51,7 +52,10 @@ target_include_directories(opendepot_core PRIVATE
 )
 
 if(WIN32)
-    target_sources(opendepot_core PRIVATE src/radio/native_session.cpp)
+    target_sources(opendepot_core PRIVATE src/radio/win32_serial_link.cpp)
+elseif(ANDROID)
+    target_sources(opendepot_core PRIVATE src/radio/android_serial_link.cpp)
+    target_link_libraries(opendepot_core PRIVATE log)
 endif()
 
 if(OPENDEPOT_BUILD_C_API)
@@ -78,6 +82,10 @@ if(OPENDEPOT_BUILD_CLI)
             tools/depot_profile_gen.cpp
         )
         target_link_libraries(depot-profile-gen PRIVATE opendepot_core)
+        add_executable(corpus-analyzer
+            tools/corpus_analyzer.cpp
+        )
+        target_link_libraries(corpus-analyzer PRIVATE opendepot_core)
     else()
         message(STATUS
             "Skipping opendepot-cli: the harness still uses Win32 for process and serial I/O")
